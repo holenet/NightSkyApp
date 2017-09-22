@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group
+        android:id="@+id/first"
+        android:checkableBehavior="single">
+        <item
+            android:id="@+id/nVall"
+            android:icon="@drawable/ic_filter_none_black_24dp"
+            android:title="All" />
+        <item
+            android:id="@+id/nVpost"
+            android:icon="@drawable/ic_library_books_black_24dp"
+            android:title="Post" />
+        <item
+            android:id="@+id/nVmusic"
+            android:icon="@drawable/ic_library_music_black_24dp"
+            android:title="Music" />
+        <item
+            android:id="@+id/nVgallery"
+            android:icon="@drawable/ic_menu_gallery"
+            android:title="Gallery" />
+    </group>
+
+    <group
+        android:id="@+id/second"
+        android:checkableBehavior="none">
+        <item
+            android:id="@+id/nVsetting"
+            android:icon="@drawable/ic_menu_manage"
+            android:title="Setting" />
+        <item
+            android:id="@+id/nVlogout"
+            android:icon="@drawable/ic_power_settings_new_black_24dp"
+            android:title="Logout" />
+        <item
+            android:id="@+id/nVexit"
+            android:icon="@drawable/ic_exit_to_app_black_24dp"
+            android:title="Exit" />
+    </group>
+
+</menu>

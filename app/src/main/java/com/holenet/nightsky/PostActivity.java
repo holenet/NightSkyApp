@@ -1,0 +1,509 @@
+package com.holenet.nightsky;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.content.DialogInterface;
+import android.os.AsyncTask;
+import android.support.constraint.ConstraintLayout;
+import android.support.v4.app.FragmentStatePagerAdapter;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.view.ViewPager;
+import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.ImageButton;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.holenet.nightsky.PostActivity.Mode.*;
+import static com.holenet.nightsky.PostActivity.LoadState.*;
+
+public class PostActivity extends AppCompatActivity {
+    enum Mode {
+        edit, read,
+    }
+
+    enum LoadState {
+        unloaded, loading, loaded,
+    }
+
+    class FragInfo {
+        Mode mode;
+        LoadState loadState;
+        Post post;
+
+        public FragInfo(Mode mode, LoadState loadState, Post post) {
+            this.mode = mode;
+            this.loadState = loadState;
+            this.post = post;
+        }
+    }
+
+    List<FragInfo> fragInfos;
+    List<PostBaseFragment> fragments;
+    int currentPage;
+    int lastPage;
+    Mode mode = read;
+    FragInfo tempFragInfo;
+
+    private PagerAdapter pagerAdapter;
+    private KeyDisableViewPager viewPager;
+
+    private ConstraintLayout cLcomment;
+    private ProgressBar pBloading;
+    private ImageButton bTsend;
+
+    private int lastPosition;
+    private float lastPositionOffset;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_post);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        fragInfos = new ArrayList<>();
+        fragments = new ArrayList<>();
+        for(int i=0; i<getIntent().getIntExtra("post_count_all", 0); i++) {
+            fragInfos.add(new FragInfo(read, unloaded, null));
+        }
+        Log.e("post_count_all", fragInfos.size()+"");
+
+        pagerAdapter = new PagerAdapter(getSupportFragmentManager());
+
+        viewPager = (KeyDisableViewPager) findViewById(R.id.container);
+        viewPager.setAdapter(pagerAdapter);
+        viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+            int scrollCount = 0;
+            @Override
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+                Log.d("onPageScrolled", "pos:"+position+" curr:"+currentPage+" "+mode+" offset:"+positionOffset);
+                lastPosition = position;
+                lastPositionOffset = positionOffset;
+                if(positionOffset==0.0f && scrollCount%3==0) {
+                    setProgress();
+                }
+            }
+
+            @Override
+            public void onPageSelected(int position) {
+                Log.e("onPageSelected", position+"");
+                currentPage = position;
+                changeMode(fragInfos.get(position).mode);
+                loadPageAround(position);
+            }
+
+            @Override
+            public void onPageScrollStateChanged(int state) {
+            }
+        });
+        viewPager.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return mode==edit;
+            }
+        });
+        currentPage = fragInfos.size()-1-getIntent().getIntExtra("post_current_page", -1);
+        viewPager.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if(currentPage==fragInfos.size()) {
+                    currentPage -= 1;
+                    addPost();
+                } else {
+                    viewPager.setCurrentItem(currentPage, false);
+                    loadPageAround(currentPage);
+                }
+            }
+        }, 100);
+
+        cLcomment = (ConstraintLayout) findViewById(R.id.cLcomment);
+        pBloading = (ProgressBar) findViewById(R.id.pBloading);
+        bTsend = (ImageButton) findViewById(R.id.bTsend);
+        bTsend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.e("status", "vP curr Item: "+viewPager.getCurrentItem()+"\nfragInfo size: "+fragInfos.size()+"\nfragments size: "+fragments.size()+
+                    "\nmode: "+mode+"\ncurr Id: "+fragInfos.get(currentPage).post.getId()+":"+fragments.get(currentPage).post.getId()+
+                    "\nfragment class: "+fragments.get(currentPage).getClass().getSimpleName()+":"+fragInfos.get(currentPage).mode);
+                Log.e("current Fragment Id", fragments.get(currentPage).post.getId()+"");
+            }
+        });
+
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+    }
+
+    Menu menu;
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        this.menu = menu;
+        getMenuInflater().inflate(R.menu.menu_post, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if(id==android.R.id.home) {
+            onBackPressed();
+        } else if(id==R.id.mIedit) {
+            if(fragInfos.get(currentPage).loadState!=loaded) {
+                Toast.makeText(this, "Page is not loaded yet. Please wait...", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            PostBaseFragment fragment = fragments.get(currentPage);
+            if(fragment instanceof PostEditFragment) {
+                Log.e("edit menu invoked", "in edit fragment");
+                return true;
+            }
+            tempFragInfo = new FragInfo(read, loaded, fragment.post.copy());
+            fragInfos.set(currentPage, new FragInfo(edit, loaded, fragment.post));
+            changeMode(edit);
+        } else if(id==R.id.mIaddOrPost) {
+            Log.e("mIaddOrPost",mode+"");
+            if(mode==edit) { // Edit Mode -> Post
+                attemptPost();
+            } else { // Read Mode -> Add
+                addPost();
+            }
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void updateOptionItems() {
+        if(menu==null)
+            return;
+        if(mode==edit) {
+            menu.removeItem(R.id.mIedit);
+            MenuItem item = menu.findItem(R.id.mIaddOrPost);
+            item.setIcon(R.drawable.ic_open_in_browser_white_24dp);
+            item.setTitle("Post");
+        } else {
+            menu.clear();
+            getMenuInflater().inflate(R.menu.menu_post, menu);
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if(mode==edit) {
+            final boolean isAdd = ((PostEditFragment)fragments.get(currentPage)).post.getId()==-1;
+            new AlertDialog.Builder(PostActivity.this)
+                    .setTitle("You are editing")
+                    .setIcon(R.drawable.ic_warning_black_24dp)
+                    .setMessage("Modified data will NOT be saved.")
+                    .setPositiveButton("confirm", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            if(isAdd) {
+                                fragInfos.remove(currentPage);
+                                ((PostEditFragment)fragments.get(currentPage)).clear();
+                                fragments.get(currentPage).post.setId(91121);
+                                pagerAdapter.notifyDataSetChanged();
+                                viewPager.setCurrentItem(lastPage);
+                            } else {
+                                fragInfos.set(currentPage, tempFragInfo);
+                            }
+                            changeMode(read);
+                        }
+                    })
+                    .setNegativeButton("cancel", null).show();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    protected void addPost() {
+        fragInfos.add(new FragInfo(edit, loaded, new Post()));
+        pagerAdapter.notifyDataSetChanged();
+        lastPage = currentPage;
+        viewPager.setCurrentItem(fragInfos.size()-1);
+        changeMode(edit);
+    }
+
+    protected void changeMode(final Mode nextMode) {
+        Log.e("changeMode", mode+"/"+nextMode);
+        if(mode==nextMode)
+            return;
+        int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+        mode = nextMode;
+        getSupportActionBar().setTitle(nextMode.toString().substring(0,1).toUpperCase()+nextMode.toString().substring(1)+" Post");
+        updateOptionItems();
+        pagerAdapter.notifyDataSetChanged();
+
+        if(cLcomment==null)
+            return;
+        float alpha = cLcomment.getAlpha();
+        cLcomment.clearAnimation();
+        cLcomment.setAlpha(alpha);
+        cLcomment.setVisibility(View.VISIBLE);
+        cLcomment.animate().setDuration((long)(shortAnimTime*(nextMode==edit ? alpha : 1-alpha))).alpha(
+                nextMode==edit ? 0 : 1).setListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                cLcomment.setVisibility(nextMode==edit ? View.GONE : View.VISIBLE);
+            }
+        });
+    }
+
+    void attemptPost() {
+        Log.e("attemptPost", currentPage+"/"+mode);
+        FragInfo fragInfo = fragInfos.get(currentPage);
+        if(fragInfo.mode==read) {
+            Log.e("attemptPost invoked", "in read fragment");
+            return;
+        }
+        if(fragInfo.loadState==loading) {
+            Log.e("atteptPost invoked", "in loaing state");
+            return;
+        }
+
+        PostEditFragment pef = (PostEditFragment) fragments.get(currentPage);
+        pef.save();
+        Post post = pef.post.copy();
+
+        if(post.getTitle().replace(" ", "").replace("\n", "").isEmpty() || post.getText().replace(" ", "").replace("\n", "").isEmpty()) {
+            Toast.makeText(this, "You have to fill ALL fields.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        fragInfos.get(currentPage).loadState = loading;
+        setProgress();
+        PostPostTask postTask = new PostPostTask(currentPage, post);
+        postTask.execute((Void) null);
+    }
+
+    void loadPageAround(int position) {
+        final int offset = 3;
+        for(int i=-offset; i<1+offset; i++) {
+            int offPosition = position+i;
+            if(offPosition<0)
+                continue;
+            if(offPosition>=fragInfos.size())
+                break;
+            if(fragInfos.get(offPosition).loadState==unloaded) {
+                fragInfos.get(offPosition).loadState = loading;
+                PostLoadTask loadTask = new PostLoadTask(offPosition, false);
+                loadTask.execute((Void) null);
+                setProgress();
+            }
+        }
+    }
+
+    void onFinishedLoad(int page, Post post) {
+        fragInfos.set(page, new FragInfo(read, loaded, post));
+        fragments.get(page).post = post;
+        ((PostReadFragment)fragments.get(page)).refresh();
+        if(pagerAdapter!=null)
+            pagerAdapter.notifyDataSetChanged();
+    }
+
+    boolean showing;
+    private void setProgress() {
+        Log.e(" setProgress", "showing: "+showing);
+
+        boolean show = false;
+        if(fragInfos.get(lastPosition).loadState==loading)
+            show = true;
+        if(lastPositionOffset!=0.0f && fragInfos.get(lastPosition+1).loadState==loading) {
+            show = true;
+        }
+        Log.e(" setProgress", "show: "+show);
+
+        if(showing==show)
+            return;
+        showing = show;
+
+        int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+
+        float alpha = pBloading.getAlpha();
+        pBloading.clearAnimation();
+        pBloading.setAlpha(alpha);
+        pBloading.animate().setDuration((long)(shortAnimTime*(show ? 1-alpha : alpha))).alpha(
+                show ? 1 : 0);
+    }
+
+    private class PostPostTask extends AsyncTask<Void, Void, String> {
+        int postNumber;
+        Post post;
+
+        public PostPostTask(int postNumber, Post post) {
+            this.postNumber = postNumber;
+            this.post = post;
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            Map<String, String> data = new LinkedHashMap<>();
+            data.put("title", post.getTitle());
+            data.put("text", post.getText());
+            if(post.getId()!=-1)
+                return NetworkManager.post(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/"+post.getId()+"/edit/", data);
+            else
+                return NetworkManager.post(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/new/", data);
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            setProgress();
+
+            if(result==null) {
+                Toast.makeText(PostActivity.this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                return;
+            }
+            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+                Toast.makeText(PostActivity.this, R.string.error_login, Toast.LENGTH_SHORT).show();
+                setResult(NetworkManager.RESULT_CODE_LOGIN_FAILED);
+                finish();
+                return;
+            }
+
+            String viewName = Parser.getMetaDataHTML(result, "view_name");
+            Log.d("view_name", String.valueOf(viewName));
+            if(!"post_detail".equals(viewName)) {
+                fragInfos.set(postNumber, new FragInfo(edit, loaded, post));
+                pagerAdapter.notifyDataSetChanged();
+            } else {
+                fragInfos.set(postNumber, new FragInfo(read, loading, post));
+                changeMode(read);
+                PostLoadTask loadTask = new PostLoadTask(postNumber, false);
+                loadTask.execute((Void) null);
+                setProgress();
+            }
+        }
+
+        @Override
+        protected void onCancelled() {
+            setProgress();
+        }
+    }
+
+    private class PostLoadTask extends AsyncTask<Void, Void, String> {
+        int postNumber;
+        int postId;
+
+        public PostLoadTask(int postNumber, boolean isId) {
+            this.postNumber = postNumber;
+            postId = isId ? postNumber : -1;
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            Log.e("doInBackground/Load", "Num:"+postNumber+"Id:"+postId);
+//            if(postId!=-1)
+//                return NetworkManager.get(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/"+postId+"/");
+//            else
+                return NetworkManager.get(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/find-by-index/"+postNumber+"/");
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            setProgress();
+
+            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+                Toast.makeText(PostActivity.this, R.string.error_login, Toast.LENGTH_SHORT).show();
+                setResult(NetworkManager.RESULT_CODE_LOGIN_FAILED);
+                finish();
+                return;
+            }
+            setProgress();
+
+            String viewName = Parser.getMetaDataHTML(result, "view_name");
+            Log.d("view_name", String.valueOf(viewName));
+
+            Post post = Parser.getPostJSON(result);
+            if(post!=null) {
+                if(postNumber==currentPage) {
+                    changeMode(read);
+                }
+                onFinishedLoad(postNumber, post);
+            } else {
+                Toast.makeText(PostActivity.this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                fragInfos.set(postNumber, new FragInfo(read, unloaded, fragInfos.get(postNumber).post));
+            }
+
+            setProgress();
+        }
+
+        @Override
+        protected void onCancelled() {
+            setProgress();
+        }
+    }
+
+    class PagerAdapter extends FragmentStatePagerAdapter {
+        PagerAdapter(FragmentManager fm) {
+            super(fm);
+        }
+
+        @Override
+        public Fragment getItem(int position) {
+            Log.e("getItem", "begin/"+position);
+            FragInfo fragInfo = fragInfos.get(position);
+            Post post = fragInfo.post;
+            if(fragInfo.loadState!=loaded)
+                post = new Post(-404, "loading...", "", new String[] {"", ""}, "");
+            PostBaseFragment item;
+            if(fragInfo.mode==edit) {
+                item = PostEditFragment.newInstance(post);
+            } else {
+                item = PostReadFragment.newInstance(post);
+            }
+
+            while(fragments.size()<fragInfos.size())
+                fragments.add(PostReadFragment.newInstance(new Post()));
+            fragments.set(position, item);
+            Log.e("getItem", "end/\n"+item.getClass().getSimpleName()+"/"+post.getTitle());
+            return item;
+        }
+
+        @Override
+        public int getCount() {
+            return fragInfos.size();
+        }
+
+        @Override
+        public CharSequence getPageTitle(int position) {
+            if(position<fragInfos.size())
+                return fragInfos.get(position).post.getTitle();
+            return null;
+        }
+
+        @Override
+        public int getItemPosition(Object object) {
+            Log.e("getItemPosition", "begin/");
+            Mode fragMode = object instanceof PostEditFragment ? edit : read;
+            int id = ((PostBaseFragment)object).post.getId();
+            Log.e("getItemPosition", "middle/"+id);
+            int position = -1;
+            for(int i=0; i<fragInfos.size(); i++) {
+                FragInfo fragInfo = fragInfos.get(i);
+                if(fragInfo.loadState==loaded && fragInfo.mode==fragMode && fragInfo.post.getId()==id) {
+                    position = i;
+                    break;
+                }
+            }
+            Log.e("getItemPosition", "end/"+position);
+            if(position>=0)
+                return position;
+            else
+                return POSITION_NONE;
+        }
+    }
+}
