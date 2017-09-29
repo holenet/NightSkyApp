@@ -7,11 +7,6 @@
         android:title="Upload"
         app:showAsAction="always" />
     <item
-        android:id="@+id/mIdownload"
-        android:icon="@drawable/ic_file_download_white_24dp"
-        android:title="Download"
-        app:showAsAction="always" />
-    <item
         android:id="@+id/mIexit"
         android:icon="@drawable/ic_exit_to_app_white_24dp"
         android:title="Exit"

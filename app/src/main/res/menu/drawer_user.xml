@@ -6,10 +6,6 @@
         android:id="@+id/first"
         android:checkableBehavior="single">
         <item
-            android:id="@+id/nVall"
-            android:icon="@drawable/ic_filter_none_black_24dp"
-            android:title="All" />
-        <item
             android:id="@+id/nVpost"
             android:icon="@drawable/ic_library_books_black_24dp"
             android:title="Post" />
@@ -21,6 +17,10 @@
             android:id="@+id/nVgallery"
             android:icon="@drawable/ic_menu_gallery"
             android:title="Gallery" />
+        <item
+            android:id="@+id/nVfile"
+            android:icon="@drawable/ic_filter_none_black_24dp"
+            android:title="File" />
     </group>
 
     <group

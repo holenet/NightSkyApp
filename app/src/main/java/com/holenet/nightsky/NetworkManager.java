@@ -19,6 +19,7 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -39,6 +40,8 @@ import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import static java.net.HttpURLConnection.HTTP_OK;
+
 public class NetworkManager {
     final static int CONNECTION_TIME = 5000;
     final static String MAIN_DOMAIN = "http://147.46.209.151:6147/";
@@ -47,13 +50,12 @@ public class NetworkManager {
     final static String RESULT_STRING_LOGIN_FAILED = "login failed";
 
     static String register(Map<String, String> data) {
-        Log.e("Network", "register");
-        String url = CLOUD_DOMAIN+"register/";
+        String url = MAIN_DOMAIN+"accounts/register/";
+        Log.e("Network", "register: "+url);
 
         StringBuilder output = new StringBuilder();
         try {
             String csrftoken = getCsrfToken(url);
-
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
             data.put("csrfmiddlewaretoken", csrftoken);
@@ -75,7 +77,7 @@ public class NetworkManager {
             int resCode = conn.getResponseCode();
             Log.d("response Code", resCode+"");
 
-            if(resCode==HttpURLConnection.HTTP_OK) {
+            if(resCode==HTTP_OK) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 while(true) {
                     String line = reader.readLine();
@@ -95,19 +97,22 @@ public class NetworkManager {
         return output.toString();
     }
 
-    static private boolean login(Context context) {
-        Log.e("Network", "login");
-        String url = MAIN_DOMAIN+"accounts/login/";
-        CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_ALL));
+    static boolean login(Context context) {
         SharedPreferences pref = context.getSharedPreferences("settings_login", 0);
+        return login(pref.getString(context.getString(R.string.pref_key_username), ""), pref.getString(context.getString(R.string.pref_key_password), ""));
+    }
+
+    static boolean login(String username, String password) {
+        String url = MAIN_DOMAIN+"accounts/login/?next=/cloud/";
+        Log.e("Network", "login: "+url);
+
         try {
             String csrftoken = getCsrfToken(url);
-
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
             Map<String, String> data = new HashMap<>();
-            data.put("username", pref.getString(context.getString(R.string.pref_key_username), ""));
-            data.put("password", pref.getString(context.getString(R.string.pref_key_password), ""));
+            data.put("username", username);
+            data.put("password", password);
             data.put("next", "/cloud/");
             data.put("csrfmiddlewaretoken", csrftoken);
 
@@ -129,7 +134,22 @@ public class NetworkManager {
             int resCode = conn.getResponseCode();
             Log.d("Network", "login: "+resCode);
 
-            return resCode==HttpURLConnection.HTTP_OK;
+            if(resCode==HTTP_OK) {
+                StringBuilder output = new StringBuilder();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                while(true) {
+                    String line = reader.readLine();
+                    if(line==null)
+                        break;
+                    Log.d("line", line);
+                    output.append(line);
+                }
+                reader.close();
+
+                return Parser.getMetaDataHTML(output.toString(), "view_name").equals("post_list");
+            } else {
+                return false;
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -144,13 +164,14 @@ public class NetworkManager {
         StringBuilder output = new StringBuilder();
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+
             conn.setConnectTimeout(CONNECTION_TIME);
             conn.setDoInput(true);
             conn.setRequestMethod("GET");
 
             int resCode = conn.getResponseCode();
             Log.e("response Code", resCode + "");
-            if(resCode==HttpURLConnection.HTTP_OK) {
+            if(resCode==HTTP_OK) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 while (true) {
                     String line = reader.readLine();
@@ -161,7 +182,9 @@ public class NetworkManager {
                 }
                 reader.close();
                 conn.disconnect();
-            } else return null;
+            } else {
+                return String.valueOf(resCode);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -178,7 +201,6 @@ public class NetworkManager {
         StringBuilder output = new StringBuilder();
         try {
             String csrftoken = getCsrfToken(url);
-
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
             data.put("csrfmiddlewaretoken", csrftoken);
@@ -202,7 +224,7 @@ public class NetworkManager {
             int resCode = conn.getResponseCode();
             Log.d("response Code", resCode+"");
 
-            if(resCode==HttpURLConnection.HTTP_OK) {
+            if(resCode==HTTP_OK) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 while(true) {
                     String line = reader.readLine();
@@ -213,7 +235,9 @@ public class NetworkManager {
                 }
                 reader.close();
                 conn.disconnect();
-            } else return null;
+            } else {
+                return String.valueOf(resCode);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -240,6 +264,7 @@ public class NetworkManager {
         try {
             String csrftoken = getCsrfToken(url);
             URLConnection conn = new URL(url).openConnection();
+
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary="+boundary);
 
@@ -297,17 +322,68 @@ public class NetworkManager {
         }
     }
 
+    static int download(Context context, String url, File file) {
+        Log.e("Network", "download: "+url);
+        if(!login(context))
+            return RESULT_CODE_LOGIN_FAILED;
+
+        try {
+            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+
+            conn.setDoInput(true);
+            conn.setRequestMethod("GET");
+
+            int resCode = conn.getResponseCode();
+
+            if(resCode==HTTP_OK) {
+                String fileName = "";
+
+                String disposition = conn.getHeaderField("Content-Disposition");
+                String contentType = conn.getContentType();
+                int contentLength = conn.getContentLength();
+
+                if(disposition!=null) {
+                    int index = disposition.indexOf("filename=");
+                    if(index>0) {
+                        fileName = disposition.substring(index+9, disposition.length()).trim();
+                    }
+                } else {
+                    fileName = url.substring(url.substring(0, url.lastIndexOf("/")).lastIndexOf("/")+1, url.length());
+                }
+
+                InputStream inputStream = conn.getInputStream();
+                FileOutputStream outputStream = new FileOutputStream(file);
+
+                int bytesRead;
+                byte[] buffer = new byte[4096];
+                while((bytesRead=inputStream.read(buffer))>0) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+
+                outputStream.close();
+                inputStream.close();
+            }
+
+            return resCode;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
     // Post data rigth after call this method
     static String getCsrfToken(String url) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+
         String csrftoken = null;
-        String cookies = conn.getHeaderFields().get("Set-Cookie").get(0);
+        String cookies = conn.getHeaderField("Set-Cookie");
         for(String cookie: cookies.split(";")) {
             String[] cook = cookie.split("=");
             if(cook[0].equals("csrftoken")) {
                 csrftoken = cook[1];
             }
         }
+
         conn.disconnect();
         return csrftoken;
     }

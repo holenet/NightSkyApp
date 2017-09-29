@@ -260,7 +260,7 @@ public class LoginFragment extends Fragment {
         }
     }
 
-    public class UserLoginTask extends AsyncTask<Void, Void, String> {
+    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
         private final String username;
         private final String password;
 
@@ -270,28 +270,20 @@ public class LoginFragment extends Fragment {
         }
 
         @Override
-        protected String doInBackground(Void... params) {
-            Map<String, String> data = new LinkedHashMap<>();
-            return NetworkManager.post(context, NetworkManager.MAIN_DOMAIN+"accounts/login/", data);
+        protected Boolean doInBackground(Void... params) {
+            return NetworkManager.login(username, password);
         }
 
         @Override
-        protected void onPostExecute(final String result) {
+        protected void onPostExecute(final Boolean result) {
             loginTask = null;
             activity.showProgress(false);
 
-            if(result==null) {
-                Toast.makeText(context, getString(R.string.error_network), Toast.LENGTH_LONG).show();
-                return;
-            }
-            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+            if(!result) {
                 Toast.makeText(context, "Incorrect username or password!!", Toast.LENGTH_SHORT).show();
                 eTusername.requestFocus();
                 return;
             }
-
-            String viewName = Parser.getMetaDataHTML(result, "view_name");
-            Log.e("view_name", String.valueOf(viewName));
 
             SharedPreferences.Editor editor = pref.edit();
             editor.putBoolean(getString(R.string.pref_key_auto_login), cBautoLogin.isChecked());
@@ -300,6 +292,7 @@ public class LoginFragment extends Fragment {
             editor.putString(getString(R.string.pref_key_username), username);
             editor.putString(getString(R.string.pref_key_password), password);
             editor.apply();
+
             activity.onLogged(true, username);
         }
 

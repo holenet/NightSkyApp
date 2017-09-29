@@ -18,7 +18,7 @@ import java.util.List;
 
 import static android.app.Activity.RESULT_OK;
 
-public class AllFragment extends Fragment {
+public class FileFragment extends Fragment {
     Context context;
     UserActivity activity;
 
@@ -33,7 +33,7 @@ public class AllFragment extends Fragment {
         context = getContext();
         activity = (UserActivity) getActivity();
 
-        View v = inflater.inflate(R.layout.fragment_all, container, false);
+        View v = inflater.inflate(R.layout.fragment_file, container, false);
 
         tVcontent = (TextView) v.findViewById(R.id.tVcontent);
         fABrefresh = (FloatingActionButton) v.findViewById(R.id.fABrefresh);

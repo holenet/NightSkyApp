@@ -2,6 +2,7 @@ package com.holenet.nightsky;
 
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -58,6 +59,7 @@ public class Parser {
                 String title = post.child(1).text();
                 String text = post.child(2).text();
                 int sepIndex = datetime.indexOf(',', 10);
+                // TODO: parse author
                 Post postItem = new Post(0, title, "", new String[] {datetime.substring(0, sepIndex), datetime.substring(sepIndex+2)}, text);
                 postItem.setCommentCount(Integer.valueOf(post.text().split(":")[post.text().split(":").length-1].replace(" ", "")));
                 postItems.add(postItem);
@@ -91,12 +93,20 @@ public class Parser {
         Post post = null;
         try {
             JSONObject jo = new JSONObject(res);
-            String datetime = jo.getString("datetime");
-            Log.e("getPostJSON", datetime);
-            post = new Post(jo.getInt("id"), jo.getString("title"), jo.getString("author"), new String[] {datetime.split(" ")[0], datetime.split(" ")[1].split("\\.")[0]}, jo.getString("text"));
+            JSONArray ja = jo.getJSONArray("comments");
+            List<Comment> comments = new ArrayList<>();
+            for(int i=0; i<ja.length(); i++) {
+                JSONObject o = ja.getJSONObject(i);
+                comments.add(new Comment(o.getInt("id"), o.getString("author"), getDatetime(o.getString("datetime")), o.getString("text")));
+            }
+            post = new Post(jo.getInt("id"), jo.getString("title"), jo.getString("author"), getDatetime(jo.getString("datetime")), jo.getString("text"), comments);
         } catch (JSONException e) {
             e.printStackTrace();
         }
         return post;
+    }
+
+    private static String[] getDatetime(String res) {
+        return new String[] {res.split(" ")[0], res.split(" ")[1].split("\\.")[0]};
     }
 }

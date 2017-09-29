@@ -1,5 +1,7 @@
 package com.holenet.nightsky;
 
+// TODO: Combine PostReadFragment and PostEditFragment to PostDetailFragment
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.DialogInterface;
@@ -19,8 +21,10 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -62,9 +66,11 @@ public class PostActivity extends AppCompatActivity {
     private PagerAdapter pagerAdapter;
     private KeyDisableViewPager viewPager;
 
-    private ConstraintLayout cLcomment;
     private ProgressBar pBloading;
+    private RelativeLayout rLcomment;
+    private ConstraintLayout cLcomment;
     private ImageButton bTsend;
+    private Button bTtoggleComment;
 
     private int lastPosition;
     private float lastPositionOffset;
@@ -97,7 +103,7 @@ public class PostActivity extends AppCompatActivity {
                 lastPosition = position;
                 lastPositionOffset = positionOffset;
                 if(positionOffset==0.0f && scrollCount%3==0) {
-                    setProgress();
+                    updateProgress();
                 }
             }
 
@@ -107,6 +113,8 @@ public class PostActivity extends AppCompatActivity {
                 currentPage = position;
                 changeMode(fragInfos.get(position).mode);
                 loadPageAround(position);
+                if(mode==read)
+                    showComments(((PostReadFragment)fragments.get(currentPage)).commentsVisible);
             }
 
             @Override
@@ -133,16 +141,25 @@ public class PostActivity extends AppCompatActivity {
             }
         }, 100);
 
-        cLcomment = (ConstraintLayout) findViewById(R.id.cLcomment);
         pBloading = (ProgressBar) findViewById(R.id.pBloading);
+        rLcomment = (RelativeLayout) findViewById(R.id.rLcomments);
+        cLcomment = (ConstraintLayout) findViewById(R.id.cLcomment);
         bTsend = (ImageButton) findViewById(R.id.bTsend);
         bTsend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // TODO: post a comment and refresh
                 Log.e("status", "vP curr Item: "+viewPager.getCurrentItem()+"\nfragInfo size: "+fragInfos.size()+"\nfragments size: "+fragments.size()+
                     "\nmode: "+mode+"\ncurr Id: "+fragInfos.get(currentPage).post.getId()+":"+fragments.get(currentPage).post.getId()+
                     "\nfragment class: "+fragments.get(currentPage).getClass().getSimpleName()+":"+fragInfos.get(currentPage).mode);
                 Log.e("current Fragment Id", fragments.get(currentPage).post.getId()+"");
+            }
+        });
+        bTtoggleComment = (Button) findViewById(R.id.bTtoggleComment);
+        bTtoggleComment.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showComments(true);
             }
         });
 
@@ -177,9 +194,9 @@ public class PostActivity extends AppCompatActivity {
             changeMode(edit);
         } else if(id==R.id.mIaddOrPost) {
             Log.e("mIaddOrPost",mode+"");
-            if(mode==edit) { // Edit Mode -> Post
+            if(mode==edit) {
                 attemptPost();
-            } else { // Read Mode -> Add
+            } else {
                 addPost();
             }
         }
@@ -225,7 +242,10 @@ public class PostActivity extends AppCompatActivity {
                     })
                     .setNegativeButton("cancel", null).show();
         } else {
-            super.onBackPressed();
+            if(commentVisible)
+                showComments(false);
+            else
+                super.onBackPressed();
         }
     }
 
@@ -247,19 +267,50 @@ public class PostActivity extends AppCompatActivity {
         updateOptionItems();
         pagerAdapter.notifyDataSetChanged();
 
-        if(cLcomment==null)
+        if(rLcomment==null)
             return;
-        float alpha = cLcomment.getAlpha();
-        cLcomment.clearAnimation();
-        cLcomment.setAlpha(alpha);
-        cLcomment.setVisibility(View.VISIBLE);
-        cLcomment.animate().setDuration((long)(shortAnimTime*(nextMode==edit ? alpha : 1-alpha))).alpha(
+        float alpha = rLcomment.getAlpha();
+        rLcomment.clearAnimation();
+        rLcomment.setAlpha(alpha);
+        rLcomment.setVisibility(View.VISIBLE);
+        rLcomment.animate().setDuration((long)(shortAnimTime*(nextMode==edit ? alpha : 1-alpha))).alpha(
                 nextMode==edit ? 0 : 1).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                cLcomment.setVisibility(nextMode==edit ? View.GONE : View.VISIBLE);
+                rLcomment.setVisibility(nextMode==edit ? View.GONE : View.VISIBLE);
             }
         });
+    }
+
+    boolean commentVisible = false;
+    protected void showComments(final boolean show) {
+        Log.e("showComments", show+"");
+        commentVisible = show;
+        int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+
+        int height = bTtoggleComment.getMeasuredHeight();
+        Log.e("showComments", "height: "+height);
+        float y = bTtoggleComment.getTranslationY();
+        Log.e("showComments", "y: "+y);
+        bTtoggleComment.clearAnimation();
+        bTtoggleComment.setTranslationY(y);
+        bTtoggleComment.animate().setDuration((long)(shortAnimTime*(show ? 1-y/height : y/height)))
+                .translationYBy(show ? height-y : -y);
+
+        float alpha = cLcomment.getAlpha();
+        Log.e("showComments", "alpha: "+alpha);
+        cLcomment.clearAnimation();
+        cLcomment.setAlpha(alpha);
+        cLcomment.setVisibility(View.VISIBLE);
+        cLcomment.animate().setDuration((long)(shortAnimTime*(show ? 1-alpha : alpha)))
+                .alpha(show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                cLcomment.setVisibility(show ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        ((PostReadFragment)fragments.get(currentPage)).showComments(show);
     }
 
     void attemptPost() {
@@ -284,7 +335,7 @@ public class PostActivity extends AppCompatActivity {
         }
 
         fragInfos.get(currentPage).loadState = loading;
-        setProgress();
+        updateProgress();
         PostPostTask postTask = new PostPostTask(currentPage, post);
         postTask.execute((Void) null);
     }
@@ -301,7 +352,7 @@ public class PostActivity extends AppCompatActivity {
                 fragInfos.get(offPosition).loadState = loading;
                 PostLoadTask loadTask = new PostLoadTask(offPosition, false);
                 loadTask.execute((Void) null);
-                setProgress();
+                updateProgress();
             }
         }
     }
@@ -315,8 +366,8 @@ public class PostActivity extends AppCompatActivity {
     }
 
     boolean showing;
-    private void setProgress() {
-        Log.e(" setProgress", "showing: "+showing);
+    private void updateProgress() {
+        Log.e(" updateProgress", "showing: "+showing);
 
         boolean show = false;
         if(fragInfos.get(lastPosition).loadState==loading)
@@ -324,7 +375,7 @@ public class PostActivity extends AppCompatActivity {
         if(lastPositionOffset!=0.0f && fragInfos.get(lastPosition+1).loadState==loading) {
             show = true;
         }
-        Log.e(" setProgress", "show: "+show);
+        Log.e(" updateProgress", "show: "+show);
 
         if(showing==show)
             return;
@@ -361,7 +412,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(String result) {
-            setProgress();
+            updateProgress();
 
             if(result==null) {
                 Toast.makeText(PostActivity.this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
@@ -374,6 +425,8 @@ public class PostActivity extends AppCompatActivity {
                 return;
             }
 
+            updateProgress();
+
             String viewName = Parser.getMetaDataHTML(result, "view_name");
             Log.d("view_name", String.valueOf(viewName));
             if(!"post_detail".equals(viewName)) {
@@ -384,13 +437,13 @@ public class PostActivity extends AppCompatActivity {
                 changeMode(read);
                 PostLoadTask loadTask = new PostLoadTask(postNumber, false);
                 loadTask.execute((Void) null);
-                setProgress();
             }
+            updateProgress();
         }
 
         @Override
         protected void onCancelled() {
-            setProgress();
+            updateProgress();
         }
     }
 
@@ -414,7 +467,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(String result) {
-            setProgress();
+            updateProgress();
 
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
                 Toast.makeText(PostActivity.this, R.string.error_login, Toast.LENGTH_SHORT).show();
@@ -422,7 +475,7 @@ public class PostActivity extends AppCompatActivity {
                 finish();
                 return;
             }
-            setProgress();
+            updateProgress();
 
             String viewName = Parser.getMetaDataHTML(result, "view_name");
             Log.d("view_name", String.valueOf(viewName));
@@ -438,12 +491,12 @@ public class PostActivity extends AppCompatActivity {
                 fragInfos.set(postNumber, new FragInfo(read, unloaded, fragInfos.get(postNumber).post));
             }
 
-            setProgress();
+            updateProgress();
         }
 
         @Override
         protected void onCancelled() {
-            setProgress();
+            updateProgress();
         }
     }
 

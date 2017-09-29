@@ -24,6 +24,10 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+
 public class UserActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
     final static int REQUEST_FILE_UPLOAD = 101;
 
@@ -31,10 +35,13 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     String username;
     TextView tVusername;
 
+    // TODO: Add GalleryFragment (and SummaryFragment);
     FragmentManager fragmentManager;
+    Fragment currentFragment;
     LoginFragment loginFragment;
-    AllFragment allFragment;
     PostsFragment postsFragment;
+    MusicFragment musicFragment;
+    FileFragment fileFragment;
 
     RelativeLayout rLfragment;
     ProgressBar pBloading;
@@ -47,6 +54,8 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_ALL));
+
         rLfragment = (RelativeLayout) findViewById(R.id.rLfragment);
         pBloading = (ProgressBar) findViewById(R.id.pBloading);
 
@@ -55,14 +64,14 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
             @Override
             public void onDrawerOpened(View drawerView) {
                 super.onDrawerOpened(drawerView);
-                ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawerView.getWindowToken(), 0);
+                ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawerView.getWindowToken(), 0);
             }
 
             @Override
             public void onDrawerSlide(View drawerView, float slideOffset) {
                 super.onDrawerSlide(drawerView, slideOffset);
                 if(slideOffset<0.3)
-                    ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawerView.getWindowToken(), 0);
+                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawerView.getWindowToken(), 0);
             }
         };
 
@@ -76,38 +85,44 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
 
         fragmentManager = getSupportFragmentManager();
 
-        loginFragment = new LoginFragment();
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-        fragmentTransaction.add(R.id.rLfragment, loginFragment);
-        fragmentTransaction.commit();
+        showFragment(0);
     }
 
     private void showFragment(int which) {
-        Fragment fragment = fragmentManager.getFragments().get(0);
-        switch (which) {
-            case 0: if(fragment instanceof LoginFragment) return;
-                fragment = loginFragment = new LoginFragment(); break;
-            case 1: if(fragment instanceof AllFragment) return;
-                fragment = allFragment = new AllFragment(); break;
-            case 2: if(fragment instanceof PostsFragment) return;
-                fragment = postsFragment = new PostsFragment(); break;
-            default: fragment = null;
+        switch(which) {
+            case 0:
+                if(currentFragment instanceof LoginFragment) return;
+                currentFragment = loginFragment = new LoginFragment();
+                break;
+            case 2:
+                if(currentFragment instanceof PostsFragment) return;
+                currentFragment = postsFragment = new PostsFragment();
+                break;
+            case 3:
+                if(currentFragment instanceof MusicFragment) return;
+                currentFragment = musicFragment = new MusicFragment();
+                break;
+            case 5:
+                if(currentFragment instanceof FileFragment) return;
+                currentFragment = fileFragment = new FileFragment();
+                break;
+            default:
+                currentFragment = null;
         }
-        String fragmentName = fragment.getClass().getSimpleName().replace("Fragment", "");
+        String fragmentName = currentFragment.getClass().getSimpleName().replace("Fragment", "");
         getSupportActionBar().setTitle(fragmentName);
         FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-        fragmentTransaction.replace(R.id.rLfragment, fragment, fragmentName);
+        fragmentTransaction.replace(R.id.rLfragment, currentFragment, fragmentName);
         fragmentTransaction.commit();
     }
 
     @Override
     public void onBackPressed() {
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
+        if(drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
-            Fragment fragment = fragmentManager.getFragments().get(0);
-            if(fragment instanceof LoginFragment && ((LoginFragment) fragment).mode==LoginFragment.MODE_REGISTER) {
-                ((LoginFragment) fragment).changeMode(false);
+            if(currentFragment instanceof LoginFragment && ((LoginFragment) currentFragment).mode==LoginFragment.MODE_REGISTER) {
+                ((LoginFragment) currentFragment).changeMode(false);
             } else {
                 super.onBackPressed();
             }
@@ -116,7 +131,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
 
     public void onLogged(boolean in, String username) {
         // TODO: hide upload and download menuItem when user is not logged in
-        ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawer.getWindowToken(), 0);
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawer.getWindowToken(), 0);
         if(in) {
             this.username = username;
             if(tVusername==null)
@@ -143,20 +158,19 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if(id == R.id.mIupload) {
-            if(fragmentManager.getFragments().get(0) instanceof AllFragment) {
+        if(id==R.id.mIupload) {
+            if(currentFragment instanceof FileFragment) {
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.setType("*/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
 
                 try {
                     startActivityForResult(Intent.createChooser(intent, "Select a File to Upload"), REQUEST_FILE_UPLOAD);
-                } catch (android.content.ActivityNotFoundException ex) {
+                } catch(android.content.ActivityNotFoundException ex) {
                     Toast.makeText(this, "Please install a File Manager", Toast.LENGTH_SHORT).show();
                 }
             }
-        } else if(id == R.id.mIdownload) {
-        } else if(id == R.id.mIexit) {
+        } else if(id==R.id.mIexit) {
             finish();
         }
 
@@ -168,26 +182,29 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     public boolean onNavigationItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if (id == R.id.nVall) {
+        /*if (id == R.id.nVall) {
             showFragment(1);
-        } else if (id == R.id.nVpost) {
+        } else*/
+        if(id==R.id.nVpost) {
             showFragment(2);
-        } else if (id == R.id.nVmusic) {
-//            showFragment(musicFragment);
-        } else if (id == R.id.nVgallery) {
-//            showFragment(galleryFragment);
+        } else if(id==R.id.nVmusic) {
+            showFragment(3);
+        } else if(id==R.id.nVgallery) {
+//            showFragment(4);
+        } else if(id==R.id.nVfile) {
+            showFragment(5);
         }
 
-        if (id == R.id.nVsetting) {
+        if(id==R.id.nVsetting) {
             Intent intent = new Intent(UserActivity.this, SettingsActivity.class);
             startActivity(intent);
-        } else if (id == R.id.nVlogout) {
+        } else if(id==R.id.nVlogout) {
             if(logoutTask==null) {
                 showProgress(true);
                 logoutTask = new UserLogoutTask();
                 logoutTask.execute((Void) null);
             }
-        } else if (id == R.id.nVexit) {
+        } else if(id==R.id.nVexit) {
             finish();
         }
 
@@ -203,7 +220,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         rLfragment.clearAnimation();
         rLfragment.setAlpha(alpha);
         rLfragment.setVisibility(View.VISIBLE);
-        rLfragment.animate().setDuration((long)(shortAnimTime*(show ? alpha : 1-alpha))).alpha(
+        rLfragment.animate().setDuration((long) (shortAnimTime*(show ? alpha : 1-alpha))).alpha(
                 show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
@@ -215,8 +232,8 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         pBloading.clearAnimation();
         pBloading.setAlpha(alpha);
         pBloading.setVisibility(View.VISIBLE);
-        pBloading.animate().setDuration((long)(shortAnimTime*(show ? 1-alpha : alpha))).alpha(
-                show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
+        pBloading.animate().setDuration((long) (shortAnimTime*(show ? 1-alpha : alpha)))
+                .alpha(show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 pBloading.setVisibility(show ? View.VISIBLE : View.GONE);

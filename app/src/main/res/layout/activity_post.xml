@@ -31,79 +31,79 @@
                     android:layout_gravity="right|center_vertical"
                     android:layout_marginBottom="10dp"
                     android:layout_marginTop="10dp"
-                    android:alpha="0" />
+                    android:alpha="0"/>
             </android.support.v7.widget.Toolbar>
 
         </android.support.design.widget.AppBarLayout>
     </RelativeLayout>
 
-<!--
-    <android.support.v4.view.ViewPager
+    <com.holenet.nightsky.KeyDisableViewPager
         android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/cLcomment"
+        android:layout_above="@+id/rLcomments"
         android:layout_below="@id/rLappbar" />
--->
-        <com.holenet.nightsky.KeyDisableViewPager
-            android:id="@+id/container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_above="@+id/cLcomment"
-            android:layout_below="@id/rLappbar" />
 
-    <android.support.constraint.ConstraintLayout
-        android:id="@id/cLcomment"
+    <RelativeLayout
+        android:id="@id/rLcomments"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="@drawable/comment_box"
-        android:padding="5dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHorizontal_bias="0.545"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent">
+        android:padding="5dp">
 
-        <RelativeLayout
-            android:id="@+id/rLetcomment"
-            android:layout_width="0dp"
+        <Button
+            android:id="@+id/bTtoggleComment"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="Comments" />
 
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toLeftOf="@+id/bTsend"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="1.0"
-            tools:layout_constraintLeft_creator="1"
-            tools:layout_constraintRight_creator="1">
+        <android.support.constraint.ConstraintLayout
+            android:id="@+id/cLcomment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
 
-            <EditText
-                android:id="@+id/eTcomment"
-                android:layout_width="match_parent"
+            <RelativeLayout
+                android:id="@+id/rLeTcommentText"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="comment"
-                android:inputType="textMultiLine"
-                android:maxLines="3" />
 
-        </RelativeLayout>
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toLeftOf="@+id/bTsend"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_bias="1.0"
+                tools:layout_constraintLeft_creator="1"
+                tools:layout_constraintRight_creator="1">
+
+                <EditText
+                    android:id="@+id/eTcommentText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="comment"
+                    android:inputType="textMultiLine"
+                    android:maxLines="3" />
+
+            </RelativeLayout>
 
 
-        <ImageButton
-            android:id="@+id/bTsend"
-            android:layout_width="wrap_content"
-            android:layout_height="0dp"
-            android:paddingLeft="20dp"
-            android:paddingRight="20dp"
-            app:layout_constraintBottom_toBottomOf="@+id/rLetcomment"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/rLetcomment"
-            app:layout_constraintVertical_bias="1.0"
-            app:srcCompat="@drawable/ic_send_white_24dp"
-            tools:layout_constraintBottom_creator="1"
-            tools:layout_constraintRight_creator="1"
-            tools:layout_constraintTop_creator="1" />
+            <ImageButton
+                android:id="@+id/bTsend"
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                app:layout_constraintBottom_toBottomOf="@+id/rLeTcommentText"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/rLeTcommentText"
+                app:layout_constraintVertical_bias="1.0"
+                app:srcCompat="@drawable/ic_send_white_24dp"
+                tools:layout_constraintBottom_creator="1"
+                tools:layout_constraintRight_creator="1"
+                tools:layout_constraintTop_creator="1" />
 
-    </android.support.constraint.ConstraintLayout>
+        </android.support.constraint.ConstraintLayout>
+    </RelativeLayout>
 
 </RelativeLayout>
