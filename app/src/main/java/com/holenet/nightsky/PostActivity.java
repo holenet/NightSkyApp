@@ -1,9 +1,8 @@
 package com.holenet.nightsky;
 
-// TODO: Combine PostReadFragment and PostEditFragment to PostDetailFragment
-
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.support.constraint.ConstraintLayout;
@@ -22,6 +21,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -63,12 +63,15 @@ public class PostActivity extends AppCompatActivity {
     Mode mode = read;
     FragInfo tempFragInfo;
 
+    CommentSendTask commentTask;
+
     private PagerAdapter pagerAdapter;
     private KeyDisableViewPager viewPager;
 
     private ProgressBar pBloading;
     private RelativeLayout rLcomment;
     private ConstraintLayout cLcomment;
+    private EditText eTcommentText;
     private ImageButton bTsend;
     private Button bTtoggleComment;
 
@@ -113,8 +116,11 @@ public class PostActivity extends AppCompatActivity {
                 currentPage = position;
                 changeMode(fragInfos.get(position).mode);
                 loadPageAround(position);
-                if(mode==read)
+                if(mode==read) {
                     showComments(((PostReadFragment)fragments.get(currentPage)).commentsVisible);
+                    if(fragInfos.get(position).post!=null)
+                        bTtoggleComment.setText(String.format("Comments (%d)", fragInfos.get(position).post.getCommentCount()));
+                }
             }
 
             @Override
@@ -144,15 +150,30 @@ public class PostActivity extends AppCompatActivity {
         pBloading = (ProgressBar) findViewById(R.id.pBloading);
         rLcomment = (RelativeLayout) findViewById(R.id.rLcomments);
         cLcomment = (ConstraintLayout) findViewById(R.id.cLcomment);
+        eTcommentText = (EditText) findViewById(R.id.eTcommentText);
+        eTcommentText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean b) {
+                Log.e("onFocusChange", b+"");
+                ((PostReadFragment)fragments.get(currentPage)).scrollComments();
+            }
+        });
         bTsend = (ImageButton) findViewById(R.id.bTsend);
         bTsend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // TODO: post a comment and refresh
-                Log.e("status", "vP curr Item: "+viewPager.getCurrentItem()+"\nfragInfo size: "+fragInfos.size()+"\nfragments size: "+fragments.size()+
-                    "\nmode: "+mode+"\ncurr Id: "+fragInfos.get(currentPage).post.getId()+":"+fragments.get(currentPage).post.getId()+
-                    "\nfragment class: "+fragments.get(currentPage).getClass().getSimpleName()+":"+fragInfos.get(currentPage).mode);
-                Log.e("current Fragment Id", fragments.get(currentPage).post.getId()+"");
+                String text = eTcommentText.getText().toString();
+                eTcommentText.setText("");
+                if(text.isEmpty())
+                    return;
+                if(commentTask!=null)
+                    return;
+                Comment comment = new Comment();
+                comment.setPostId(fragInfos.get(currentPage).post.getId());
+                comment.setText(text);
+                commentTask = new CommentSendTask(comment, currentPage);
+                commentTask.execute((Void) null);
+                updateProgress();
             }
         });
         bTtoggleComment = (Button) findViewById(R.id.bTtoggleComment);
@@ -280,22 +301,40 @@ public class PostActivity extends AppCompatActivity {
                 rLcomment.setVisibility(nextMode==edit ? View.GONE : View.VISIBLE);
             }
         });
+        if(bTtoggleComment==null)
+            return;
+        alpha = bTtoggleComment.getAlpha();
+        bTtoggleComment.clearAnimation();
+        bTtoggleComment.setAlpha(alpha);
+        bTtoggleComment.setVisibility(View.VISIBLE);
+        bTtoggleComment.animate().setDuration((long)(shortAnimTime*(nextMode==edit ? alpha : 1-alpha))).alpha(
+                nextMode==edit ? 0 : 1).setListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                bTtoggleComment.setVisibility(nextMode==edit ? View.GONE : View.VISIBLE);
+            }
+        });
     }
 
+    ValueAnimator anim;
     boolean commentVisible = false;
     protected void showComments(final boolean show) {
         Log.e("showComments", show+"");
+        if(commentVisible==show)
+            return;
         commentVisible = show;
+        menu.findItem(R.id.mIedit).setVisible(!commentVisible);
         int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
 
-        int height = bTtoggleComment.getMeasuredHeight();
-        Log.e("showComments", "height: "+height);
+        final int heightBT = bTtoggleComment.getMeasuredHeight();
+        Log.e("showComments", "height: "+heightBT);
         float y = bTtoggleComment.getTranslationY();
         Log.e("showComments", "y: "+y);
         bTtoggleComment.clearAnimation();
+        bTtoggleComment.setVisibility(View.VISIBLE);
         bTtoggleComment.setTranslationY(y);
-        bTtoggleComment.animate().setDuration((long)(shortAnimTime*(show ? 1-y/height : y/height)))
-                .translationYBy(show ? height-y : -y);
+        bTtoggleComment.animate().setDuration((long)(shortAnimTime*(show ? 1-y/heightBT : y/heightBT)))
+                .translationYBy(show ? heightBT-y : -y);
 
         float alpha = cLcomment.getAlpha();
         Log.e("showComments", "alpha: "+alpha);
@@ -306,9 +345,34 @@ public class PostActivity extends AppCompatActivity {
                 .alpha(show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                cLcomment.setVisibility(show ? View.VISIBLE : View.GONE);
+                if(!show) eTcommentText.setText("");
             }
         });
+
+        if(anim!=null && anim.isRunning())
+            anim.cancel();
+        final int heightRL = cLcomment.getMeasuredHeight();
+        ValueAnimator.setFrameDelay(24);
+        anim = ValueAnimator.ofInt(heightRL, heightBT);
+        anim.setDuration((long)(shortAnimTime*(show ? 1-alpha : alpha)));
+        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                int val = (int) valueAnimator.getAnimatedValue();
+                RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) cLcomment.getLayoutParams();
+                params.height = val;
+                cLcomment.setLayoutParams(params);
+            }
+        });
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) cLcomment.getLayoutParams();
+                params.height = RelativeLayout.LayoutParams.WRAP_CONTENT;
+                cLcomment.setLayoutParams(params);
+            }
+        });
+        anim.start();
 
         ((PostReadFragment)fragments.get(currentPage)).showComments(show);
     }
@@ -321,7 +385,7 @@ public class PostActivity extends AppCompatActivity {
             return;
         }
         if(fragInfo.loadState==loading) {
-            Log.e("atteptPost invoked", "in loaing state");
+            Log.e("atteptPost invoked", "in loading state");
             return;
         }
 
@@ -358,11 +422,16 @@ public class PostActivity extends AppCompatActivity {
     }
 
     void onFinishedLoad(int page, Post post) {
+        if(isFinishing())
+            return;
         fragInfos.set(page, new FragInfo(read, loaded, post));
         fragments.get(page).post = post;
         ((PostReadFragment)fragments.get(page)).refresh();
         if(pagerAdapter!=null)
             pagerAdapter.notifyDataSetChanged();
+        if(page==currentPage)
+            bTtoggleComment.setText("Comments ("+post.getCommentCount()+")");
+
     }
 
     boolean showing;
@@ -372,9 +441,10 @@ public class PostActivity extends AppCompatActivity {
         boolean show = false;
         if(fragInfos.get(lastPosition).loadState==loading)
             show = true;
-        if(lastPositionOffset!=0.0f && fragInfos.get(lastPosition+1).loadState==loading) {
+        if(lastPositionOffset!=0.0f && fragInfos.get(lastPosition+1).loadState==loading)
             show = true;
-        }
+        if(commentTask!=null)
+            show = true;
         Log.e(" updateProgress", "show: "+show);
 
         if(showing==show)
@@ -424,8 +494,6 @@ public class PostActivity extends AppCompatActivity {
                 finish();
                 return;
             }
-
-            updateProgress();
 
             String viewName = Parser.getMetaDataHTML(result, "view_name");
             Log.d("view_name", String.valueOf(viewName));
@@ -496,6 +564,50 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         protected void onCancelled() {
+            updateProgress();
+        }
+    }
+
+    private class CommentSendTask extends AsyncTask<Void, Void, String> {
+        Comment comment;
+        int pageNumber;
+
+        public CommentSendTask(Comment comment, int pageNumber) {
+            this.comment = comment;
+            this.pageNumber = pageNumber;
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            Map<String, String> data = new LinkedHashMap<>();
+            data.put("text", comment.getText());
+            return NetworkManager.post(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/"+comment.getPostId()+"/comment/", data);
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            commentTask = null;
+            updateProgress();
+
+            if(result==null) {
+                Toast.makeText(PostActivity.this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                return;
+            }
+            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+                Toast.makeText(PostActivity.this, R.string.error_login, Toast.LENGTH_LONG).show();
+                setResult(NetworkManager.RESULT_CODE_LOGIN_FAILED);
+                finish();
+                return;
+            }
+
+            // TODO: scroll comments ListView by end
+            String viewName = Parser.getMetaDataHTML(result, "view_name");
+            Log.d("view_name", String.valueOf(viewName));
+            if("post_detail".equals(viewName)) {
+                fragInfos.set(pageNumber, new FragInfo(read, loading, fragInfos.get(pageNumber).post));
+                PostLoadTask loadTask = new PostLoadTask(pageNumber, false);
+                loadTask.execute((Void) null);
+            }
             updateProgress();
         }
     }

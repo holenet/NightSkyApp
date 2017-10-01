@@ -254,7 +254,7 @@ public class NetworkManager {
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         cursor.moveToFirst();
-        String fineName = cursor.getString(nameIndex);
+        String fileName = cursor.getString(nameIndex);
 
         String charset = "UTF-8";
         String boundary = Long.toHexString(System.currentTimeMillis());
@@ -279,8 +279,8 @@ public class NetworkManager {
 
             // Send binary file.
             writer.append("--"+boundary).append(CRLF);
-            writer.append("Content-Disposition: form-data; name=\"db_file\"; filename=\""+fineName+"\"").append(CRLF);
-            writer.append("Content-Type: "+URLConnection.guessContentTypeFromName("asdfasdf.file")).append(CRLF);
+            writer.append("Content-Disposition: form-data; name=\"db_file\"; filename=\""+fileName+"\"").append(CRLF);
+            writer.append("Content-Type: "+URLConnection.guessContentTypeFromName(fileName)).append(CRLF);
             writer.append("Content-Transfer-Encoding: binary").append(CRLF);
             writer.append(CRLF).flush();
             InputStream inputStream = context.getContentResolver().openInputStream(uri);

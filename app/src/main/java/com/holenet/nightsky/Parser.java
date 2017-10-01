@@ -1,5 +1,7 @@
 package com.holenet.nightsky;
 
+import android.content.SharedPreferences;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -10,6 +12,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.io.PipedOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +62,7 @@ public class Parser {
                 String title = post.child(1).text();
                 String text = post.child(2).text();
                 int sepIndex = datetime.indexOf(',', 10);
-                // TODO: parse author
+                // TO/DO: parse author
                 Post postItem = new Post(0, title, "", new String[] {datetime.substring(0, sepIndex), datetime.substring(sepIndex+2)}, text);
                 postItem.setCommentCount(Integer.valueOf(post.text().split(":")[post.text().split(":").length-1].replace(" ", "")));
                 postItems.add(postItem);
@@ -71,6 +74,25 @@ public class Parser {
         }
     }
 
+    @Nullable
+    static List<Post> getPostListJSON(String res) {
+        try {
+            List<Post> postItems = new ArrayList<>();
+            JSONArray ja = new JSONArray(res);
+            for(int i=0; i<ja.length(); i++) {
+                JSONObject jo = ja.getJSONObject(i);
+                Post post = new Post(jo.getInt("id"), jo.getString("title"), jo.getString("author"), getDatetime(jo.getString("datetime")), jo.getString("text"));
+                post.setCommentCount(jo.getInt("comment_count"));
+                postItems.add(post);
+            }
+            return postItems;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Nullable
     static List<String> getErrorListHTML(String res) {
         try {
             List<String> errors = new ArrayList<>();
@@ -104,6 +126,32 @@ public class Parser {
             e.printStackTrace();
         }
         return post;
+    }
+
+    static Post getPostSimpleJSON(String res) {
+        Post post = null;
+        try {
+            JSONObject jo = new JSONObject(res);
+            post = new Post();
+            post.setTitle(jo.getString("title"));
+            post.setAuthor(jo.getString("author"));
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return post;
+    }
+
+    static Post getRecentPostSimpleJSON(String res) {
+        try {
+            JSONObject jo = new JSONObject(res);
+            Post post = new Post();
+            post.setId(jo.getInt("id"));
+            post.setAuthor(jo.getString("author"));
+            return post;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private static String[] getDatetime(String res) {

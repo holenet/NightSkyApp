@@ -3,4 +3,6 @@
     <color name="colorPrimary">#335599</color>
     <color name="colorPrimaryDark">#264584</color>
     <color name="colorAccent">#34b1ff</color>
+    <color name="device">#a5d6a7</color>
+    <color name="server">#e1bee7</color>
 </resources>

@@ -21,7 +21,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PostsFragment extends Fragment {
+public class PostFragment extends Fragment {
     final static int REQUEST_POST_DETAIL = 1000;
     int count;
 
@@ -40,7 +40,7 @@ public class PostsFragment extends Fragment {
         context = getContext();
         activity = (UserActivity) getActivity();
 
-        View v = inflater.inflate(R.layout.fragment_posts, container, false);
+        View v = inflater.inflate(R.layout.fragment_post, container, false);
 
         fABadd = (FloatingActionButton) v.findViewById(R.id.fABadd);
         fABadd.setOnClickListener(new View.OnClickListener() {
@@ -94,7 +94,7 @@ public class PostsFragment extends Fragment {
     public class PostListTask extends AsyncTask<Void, Void, String> {
         @Override
         protected String doInBackground(Void... params) {
-            return NetworkManager.get(context, NetworkManager.CLOUD_DOMAIN);
+            return NetworkManager.get(context, NetworkManager.CLOUD_DOMAIN+"?JSON");
         }
 
         @Override
@@ -106,20 +106,17 @@ public class PostsFragment extends Fragment {
                 Toast.makeText(context, getString(R.string.error_network), Toast.LENGTH_LONG).show();
                 return;
             }
-
-            String viewName = Parser.getMetaDataHTML(result, "view_name");
-            Log.d("view_name", String.valueOf(viewName));
-            boolean isLoggedIn = "post_list".equals(viewName);
-            if(isLoggedIn) {
-                List<Post> posts = Parser.getPostListHTML(result);
-
-                adapter.setItems(posts);
-                adapter.notifyDataSetChanged();
-
-                count = posts.size();
-            } else {
+            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
                 activity.requestLogin();
             }
+
+//            List<Post> posts = Parser.getPostListJSON(result);
+            List<Post> posts = Parser.getPostListHTML(result);
+
+            adapter.setItems(posts);
+            adapter.notifyDataSetChanged();
+
+            count = posts.size();
         }
 
         @Override

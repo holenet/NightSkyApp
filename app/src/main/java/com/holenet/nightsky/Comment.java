@@ -4,16 +4,28 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 public class Comment implements Parcelable {
-    int id;
-    String author;
-    String[] datetime;
-    String text;
+    private int postId;
+    private int id;
+    private String author;
+    private String[] datetime;
+    private String text;
 
     public Comment(int id, String author, String[] datetime, String text) {
         this.id = id;
         this.author = author;
         this.datetime = datetime;
         this.text = text;
+    }
+
+    public Comment() {
+    }
+
+    public int getPostId() {
+        return postId;
+    }
+
+    public void setPostId(int postId) {
+        this.postId = postId;
     }
 
     public int getId() {

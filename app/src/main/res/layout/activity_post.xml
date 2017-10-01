@@ -42,26 +42,28 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@+id/rLcomments"
-        android:layout_below="@id/rLappbar" />
+        android:layout_below="@id/rLappbar"/>
+
+    <Button
+        android:id="@+id/bTtoggleComment"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:padding="5dp"
+        android:text="Comments"/>
 
     <RelativeLayout
         android:id="@id/rLcomments"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:padding="5dp">
-
-        <Button
-            android:id="@+id/bTtoggleComment"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Comments" />
+        >
 
         <android.support.constraint.ConstraintLayout
             android:id="@+id/cLcomment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone">
+            android:visibility="invisible">
 
             <RelativeLayout
                 android:id="@+id/rLeTcommentText"
@@ -83,7 +85,7 @@
                     android:layout_height="wrap_content"
                     android:hint="comment"
                     android:inputType="textMultiLine"
-                    android:maxLines="3" />
+                    android:maxLines="3"/>
 
             </RelativeLayout>
 
@@ -101,7 +103,7 @@
                 app:srcCompat="@drawable/ic_send_white_24dp"
                 tools:layout_constraintBottom_creator="1"
                 tools:layout_constraintRight_creator="1"
-                tools:layout_constraintTop_creator="1" />
+                tools:layout_constraintTop_creator="1"/>
 
         </android.support.constraint.ConstraintLayout>
     </RelativeLayout>

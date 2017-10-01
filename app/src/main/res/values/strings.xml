@@ -12,7 +12,7 @@
     <string name="error_incorrect_user_name">This user name is incorrect</string>
     <string name="error_field_required">This field is required</string>
     <string name="error_login">Account is not valid, please check your username and password.</string>
-
+    <string name="error_permission">You should allow the permission.</string>
     <string name="error_network">Network Error!! Please Try Again...</string>
 
     <string name="title_activity_login">Login</string>

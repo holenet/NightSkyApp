@@ -49,6 +49,18 @@ public class FileFragment extends Fragment {
         return v;
     }
 
+    public void requestSelectFile() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+        try {
+            startActivityForResult(Intent.createChooser(intent, "Select a File to Upload"), UserActivity.REQUEST_FILE_UPLOAD);
+        } catch(android.content.ActivityNotFoundException ex) {
+            Toast.makeText(context, "Please install a File Manager", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if(requestCode==UserActivity.REQUEST_FILE_UPLOAD) {
@@ -137,7 +149,7 @@ public class FileFragment extends Fragment {
             if(result==null || result==-1) {
                 Toast.makeText(context, R.string.error_network, Toast.LENGTH_SHORT).show();
             } else {
-
+                refresh();
             }
         }
 

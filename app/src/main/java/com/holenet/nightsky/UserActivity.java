@@ -39,7 +39,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     FragmentManager fragmentManager;
     Fragment currentFragment;
     LoginFragment loginFragment;
-    PostsFragment postsFragment;
+    PostFragment postFragment;
     MusicFragment musicFragment;
     FileFragment fileFragment;
 
@@ -89,14 +89,17 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void showFragment(int which) {
+        if(menu!=null) {
+            menu.findItem(R.id.mIupload).setVisible(which!=0 && which!=2);
+        }
         switch(which) {
             case 0:
                 if(currentFragment instanceof LoginFragment) return;
                 currentFragment = loginFragment = new LoginFragment();
                 break;
             case 2:
-                if(currentFragment instanceof PostsFragment) return;
-                currentFragment = postsFragment = new PostsFragment();
+                if(currentFragment instanceof PostFragment) return;
+                currentFragment = postFragment = new PostFragment();
                 break;
             case 3:
                 if(currentFragment instanceof MusicFragment) return;
@@ -130,7 +133,6 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     }
 
     public void onLogged(boolean in, String username) {
-        // TODO: hide upload and download menuItem when user is not logged in
         ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(drawer.getWindowToken(), 0);
         if(in) {
             this.username = username;
@@ -147,9 +149,10 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         onLogged(false, null);
     }
 
+    Menu menu;
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+        this.menu = menu;
         getMenuInflater().inflate(R.menu.user, menu);
         return true;
     }
@@ -160,15 +163,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
 
         if(id==R.id.mIupload) {
             if(currentFragment instanceof FileFragment) {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("*/*");
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-
-                try {
-                    startActivityForResult(Intent.createChooser(intent, "Select a File to Upload"), REQUEST_FILE_UPLOAD);
-                } catch(android.content.ActivityNotFoundException ex) {
-                    Toast.makeText(this, "Please install a File Manager", Toast.LENGTH_SHORT).show();
-                }
+                fileFragment.requestSelectFile();
             }
         } else if(id==R.id.mIexit) {
             finish();
