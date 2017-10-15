@@ -1,15 +1,10 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.post;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.constraint.ConstraintLayout;
-import android.support.v4.app.Fragment;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,6 +19,10 @@ import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Comment;
+import com.holenet.nightsky.item.Post;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +45,6 @@ public class PostReadFragment extends PostBaseFragment {
         post = getArguments().getParcelable("Post");
     }
 
-    ConstraintLayout cLrootContent;
     ScrollView sVpost;
     TextView tVtitle, tVauthor, tVdate, tVtime, tVtext;
     RelativeLayout rLcomments;
@@ -59,17 +57,15 @@ public class PostReadFragment extends PostBaseFragment {
 
         View v = inflater.inflate(R.layout.fragment_post_read, container, false);
 
-//        cLrootContent = (ConstraintLayout) v.findViewById(R.id.cLrootContent);
+        sVpost = v.findViewById(R.id.sVpost);
+        tVtitle = v.findViewById(R.id.tVtitle);
+        tVauthor = v.findViewById(R.id.tVauthor);
+        tVdate = v.findViewById(R.id.tVdate);
+        tVtime = v.findViewById(R.id.tVtime);
+        tVtext = v.findViewById(R.id.tVtext);
 
-        sVpost = (ScrollView) v.findViewById(R.id.sVpost);
-        tVtitle = (TextView) v.findViewById(R.id.tVtitle);
-        tVauthor = (TextView) v.findViewById(R.id.tVauthor);
-        tVdate = (TextView) v.findViewById(R.id.tVdate);
-        tVtime = (TextView) v.findViewById(R.id.tVtime);
-        tVtext = (TextView) v.findViewById(R.id.tVtext);
-
-        rLcomments = (RelativeLayout) v.findViewById(R.id.rLcomments);
-        lVcomments = (ListView) v.findViewById(R.id.lVcomments);
+        rLcomments = v.findViewById(R.id.rLcomments);
+        lVcomments = v.findViewById(R.id.lVcomments);
         adapter = new CommentsAdapter(context, R.layout.item_comment, new ArrayList<Comment>());
         lVcomments.setAdapter(adapter);
         lVcomments.setOnItemClickListener(new AdapterView.OnItemClickListener() {

@@ -6,23 +6,20 @@
     android:layout_height="match_parent"
     android:gravity="center_horizontal">
 
-    <ScrollView
+    <ListView
+        android:id="@+id/lVfiles"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tVcontent"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="TextView" />
-
-        </LinearLayout>
-    </ScrollView>
+    <TextView
+        android:id="@+id/tVempty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#DDD"
+        android:gravity="center"
+        android:padding="10dp"
+        android:text="No Files"
+        android:textSize="20dp"/>
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/fABrefresh"

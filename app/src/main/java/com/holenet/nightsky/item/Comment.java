@@ -1,4 +1,4 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.item;
 
 import android.os.Parcel;
 import android.os.Parcelable;

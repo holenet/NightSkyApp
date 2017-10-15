@@ -1,4 +1,4 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.main;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -10,11 +10,20 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.Parser;
+import com.holenet.nightsky.item.Post;
+
 public class NoticeService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
     }
+
+    final static boolean DEBUG = true;
+
+    SharedPreferences pref;
+    SharedPreferences.Editor editor;
 
     boolean quit;
     NotificationManager notificationManager;
@@ -25,6 +34,9 @@ public class NoticeService extends Service {
         super.onCreate();
 
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        pref = getSharedPreferences("post", 0);
+        editor = pref.edit();
     }
 
     @Override
@@ -49,33 +61,45 @@ public class NoticeService extends Service {
         NoticeService parent;
         Handler handler;
 
-        SharedPreferences pref;
-        SharedPreferences.Editor editor;
-
         public NoticeThread(NoticeService parent, Handler handler) {
             this.parent = parent;
             this.handler = handler;
-            pref = getSharedPreferences("post", 0);
-            editor = pref.edit();
         }
 
         @Override
         public void run() {
             while(!quit) {
-                String output = NetworkManager.get(NoticeService.this, NetworkManager.CLOUD_DOMAIN+"post/recent/");
-                Post post = Parser.getRecentPostSimpleJSON(output);
-                if(post.getId()!=pref.getInt("recent_id", -1) && !post.getAuthor().equals(getSharedPreferences("settings_login", 0).getString("username", ""))) {
-                    editor.putInt("recent_id", post.getId());
+                if(!DEBUG) {
+                    String output = NetworkManager.get(NoticeService.this, NetworkManager.CLOUD_DOMAIN+"post/recent/");
+                    Post post = Parser.getRecentPostSimpleJSON(output);
+                    if(post.getId()!=pref.getInt("recent_id", -1) && !post.getAuthor().equals(getSharedPreferences("settings_login", 0).getString("username", ""))) {
+
+                        Message msg = new Message();
+                        msg.what = 0;
+                        msg.obj = post;
+                        handler.sendMessage(msg);
+                    }
+
+                    try {
+                        Thread.sleep(delay);
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
+                } else {
                     Message msg = new Message();
                     msg.what = 0;
-                    msg.arg1 = post.getId();
+                    Post post = new Post();
+                    post.setId(3);
+                    post.setAuthor("abcdef");
+                    post.setTitle("titletitletitle");
+                    msg.obj = post;
                     handler.sendMessage(msg);
-                }
 
-                try {
-                    Thread.sleep(delay);
-                } catch(Exception e) {
-                    e.printStackTrace();
+                    try {
+                        Thread.sleep(30000);
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
@@ -85,13 +109,12 @@ public class NoticeService extends Service {
         @Override
         public void handleMessage(Message msg) {
             if(msg.what==0) {
-                Intent intent = new Intent(NoticeService.this, PostActivity.class);
+                Intent intent = new Intent(NoticeService.this, UserActivity.class);
                 intent.putExtra("recent_id", msg.arg1);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 PendingIntent content = PendingIntent.getActivity(NoticeService.this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-                String output = NetworkManager.get(NoticeService.this, NetworkManager.CLOUD_DOMAIN+"post/"+msg.arg1+"/");
-                Post post = Parser.getPostSimpleJSON(output);
+                Post post = (Post) msg.obj;
                 String author = post.getAuthor();
                 String title = post.getTitle();
 
@@ -103,10 +126,14 @@ public class NoticeService extends Service {
                 }
                 notiBuilder.setTicker("Notice")
                         .setContentTitle("New Post")
-                        .setContentText(title+"/"+author)
+                        .setContentText((title.length()>20 ? title.substring(0, 20)+"..." : title)+"/"+author)
                         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                         .setAutoCancel(true)
                         .setContentIntent(content);
+
+                Notification noti = notiBuilder.build();
+                notificationManager.notify(1, noti);
+                editor.putInt("recent_id", post.getId());
             }
         }
     };

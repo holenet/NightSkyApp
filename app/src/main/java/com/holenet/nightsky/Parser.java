@@ -1,8 +1,11 @@
 package com.holenet.nightsky;
 
-import android.content.SharedPreferences;
-import android.support.annotation.Nullable;
 import android.util.Log;
+
+import com.holenet.nightsky.item.Comment;
+import com.holenet.nightsky.item.FileItem;
+import com.holenet.nightsky.item.Music;
+import com.holenet.nightsky.item.Post;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -12,12 +15,11 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.PipedOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
-    static String getMetaDataHTML(String res, String name) {
+    public static String getMetaDataHTML(String res, String name) {
         try {
             Document doc = Jsoup.parse(res);
             Elements metas = doc.select("meta[name="+name+"]");
@@ -31,9 +33,9 @@ public class Parser {
         }
     }
 
-    static List<String[]> getFileListHTML(String res) {
+    public static List<FileItem> getFileListHTML(String res) {
         try {
-            List<String[]> fileItems = new ArrayList<>();
+            List<FileItem> fileItems = new ArrayList<>();
             Document doc = Jsoup.parse(res);
 
             Elements files = doc.select("div[class=post]");
@@ -42,7 +44,7 @@ public class Parser {
                 String author = file.child(2).text().split(": ")[1];
                 String description = file.child(3).text().split(": ")[1];
                 String datetime = file.child(4).text().split(": ")[1];
-                fileItems.add(new String[] {filePath, author, description, datetime});
+                fileItems.add(new FileItem(Integer.parseInt(filePath.split("/")[filePath.split("/").length-1]), description));
             }
             return fileItems;
         } catch(Exception e) {
@@ -51,7 +53,41 @@ public class Parser {
         }
     }
 
-    static List<Post> getPostListHTML(String res) {
+    public static List<FileItem> getFileListJSON(String res) {
+        try {
+            List<FileItem> fileItems = new ArrayList<>();
+            JSONArray ja = new JSONArray(res);
+            for(int i=0; i<ja.length(); i++) {
+                JSONObject jo = ja.getJSONObject(i);
+                FileItem file = new FileItem(jo.getInt("id"), jo.getString("name"));
+                file.setType(FileItem.FileType.valueOf(jo.getString("type")));
+                fileItems.add(file);
+            }
+            return fileItems;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static List<Music> getMusicListJSON(String res) {
+        try {
+            List<Music> musicItems = new ArrayList<>();
+            JSONArray ja = new JSONArray(res);
+            for(int i=0; i<ja.length(); i++) {
+                JSONObject jo = ja.getJSONObject(i);
+                Music music = new Music(jo.getString("title"), jo.getString("artist"), jo.getString("album"), jo.getString("path"));
+                music.setServerId(jo.getInt("id"));
+                musicItems.add(music);
+            }
+            return musicItems;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static List<Post> getPostListdHTML(String res) {
         try {
             List<Post> postItems = new ArrayList<>();
             Document doc = Jsoup.parse(res);
@@ -74,8 +110,7 @@ public class Parser {
         }
     }
 
-    @Nullable
-    static List<Post> getPostListJSON(String res) {
+    public static List<Post> getPostListJSON(String res) {
         try {
             List<Post> postItems = new ArrayList<>();
             JSONArray ja = new JSONArray(res);
@@ -92,8 +127,7 @@ public class Parser {
         }
     }
 
-    @Nullable
-    static List<String> getErrorListHTML(String res) {
+    public static List<String> getErrorListHTML(String res) {
         try {
             List<String> errors = new ArrayList<>();
             Document doc = Jsoup.parse(res);
@@ -111,7 +145,7 @@ public class Parser {
         }
     }
 
-    static Post getPostJSON(String res) {
+    public static Post getPostJSON(String res) {
         Post post = null;
         try {
             JSONObject jo = new JSONObject(res);
@@ -128,7 +162,7 @@ public class Parser {
         return post;
     }
 
-    static Post getPostSimpleJSON(String res) {
+    public static Post getPostSimpleJSON(String res) {
         Post post = null;
         try {
             JSONObject jo = new JSONObject(res);
@@ -141,7 +175,7 @@ public class Parser {
         return post;
     }
 
-    static Post getRecentPostSimpleJSON(String res) {
+    public static Post getRecentPostSimpleJSON(String res) {
         try {
             JSONObject jo = new JSONObject(res);
             Post post = new Post();

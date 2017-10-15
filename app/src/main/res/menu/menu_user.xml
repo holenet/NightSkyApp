@@ -2,6 +2,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/mIsecret"
+        android:icon="@drawable/ic_security_white_24dp"
+        android:title="Secret"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/mIupload"
         android:icon="@drawable/ic_file_upload_white_24dp"
         android:title="Upload"

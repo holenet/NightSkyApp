@@ -1,4 +1,4 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.main;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -13,7 +13,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -21,11 +20,13 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.Parser;
+import com.holenet.nightsky.R;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static android.content.Context.INPUT_METHOD_SERVICE;
 
 public class LoginFragment extends Fragment {
     Context context;
@@ -348,7 +349,7 @@ public class LoginFragment extends Fragment {
             } else {
                 List<String> errors = Parser.getErrorListHTML(result);
                 if(errors.size()==0)
-                    Toast.makeText(context, "Unknown error... Pleas try again.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "Unknown error... Please try again.", Toast.LENGTH_SHORT).show();
                 View focusView = null;
                 for(String error: errors) {
                     if(error.contains("two password")) {

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group
+        android:id="@+id/first"
+        android:checkableBehavior="single">
+        <item
+            android:id="@+id/nVnow"
+            android:title="Now Playing"/>
+        <item
+            android:id="@+id/nVlist"
+            android:title="Play List"/>
+        <item
+            android:id="@+id/nVall"
+            android:title="All"/>
+    </group>
+
+    <group
+        android:id="@+id/second"
+        android:checkableBehavior="none">
+        <item
+            android:id="@+id/nVsetting"
+            android:title="Setting" />
+        <item
+            android:id="@+id/nVback"
+            android:title="Back"/>
+    </group>
+
+</menu>

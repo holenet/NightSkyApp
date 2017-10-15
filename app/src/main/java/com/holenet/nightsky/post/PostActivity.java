@@ -1,8 +1,9 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.post;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.support.constraint.ConstraintLayout;
@@ -20,6 +21,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -27,13 +29,20 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import com.holenet.nightsky.KeyDisableViewPager;
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.Parser;
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Comment;
+import com.holenet.nightsky.item.Post;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.holenet.nightsky.PostActivity.Mode.*;
-import static com.holenet.nightsky.PostActivity.LoadState.*;
+import static com.holenet.nightsky.post.PostActivity.Mode.*;
+import static com.holenet.nightsky.post.PostActivity.LoadState.*;
 
 public class PostActivity extends AppCompatActivity {
     enum Mode {
@@ -48,6 +57,7 @@ public class PostActivity extends AppCompatActivity {
         Mode mode;
         LoadState loadState;
         Post post;
+        PostLoadTask task;
 
         public FragInfo(Mode mode, LoadState loadState, Post post) {
             this.mode = mode;
@@ -99,15 +109,12 @@ public class PostActivity extends AppCompatActivity {
         viewPager = (KeyDisableViewPager) findViewById(R.id.container);
         viewPager.setAdapter(pagerAdapter);
         viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
-            int scrollCount = 0;
             @Override
             public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
                 Log.d("onPageScrolled", "pos:"+position+" curr:"+currentPage+" "+mode+" offset:"+positionOffset);
                 lastPosition = position;
                 lastPositionOffset = positionOffset;
-                if(positionOffset==0.0f && scrollCount%3==0) {
-                    updateProgress();
-                }
+                updateProgress();
             }
 
             @Override
@@ -134,11 +141,11 @@ public class PostActivity extends AppCompatActivity {
             }
         });
         currentPage = fragInfos.size()-1-getIntent().getIntExtra("post_current_page", -1);
+        //TODO: process intent Extra "recent_id"
         viewPager.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if(currentPage==fragInfos.size()) {
-                    currentPage -= 1;
                     addPost();
                 } else {
                     viewPager.setCurrentItem(currentPage, false);
@@ -154,7 +161,6 @@ public class PostActivity extends AppCompatActivity {
         eTcommentText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean b) {
-                Log.e("onFocusChange", b+"");
                 ((PostReadFragment)fragments.get(currentPage)).scrollComments();
             }
         });
@@ -274,7 +280,8 @@ public class PostActivity extends AppCompatActivity {
         fragInfos.add(new FragInfo(edit, loaded, new Post()));
         pagerAdapter.notifyDataSetChanged();
         lastPage = currentPage;
-        viewPager.setCurrentItem(fragInfos.size()-1);
+        currentPage = fragInfos.size()-1;
+        viewPager.setCurrentItem(currentPage);
         changeMode(edit);
     }
 
@@ -284,6 +291,18 @@ public class PostActivity extends AppCompatActivity {
             return;
         int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
         mode = nextMode;
+        viewPager.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if(nextMode==edit) {
+                    ((PostEditFragment)fragments.get(currentPage)).eTtitle.requestFocus();
+                    imm.showSoftInput(getCurrentFocus(), InputMethodManager.SHOW_IMPLICIT);
+                } else {
+                    imm.hideSoftInputFromWindow(viewPager.getWindowToken(), 0);
+                }
+            }
+        }, 100);
         getSupportActionBar().setTitle(nextMode.toString().substring(0,1).toUpperCase()+nextMode.toString().substring(1)+" Post");
         updateOptionItems();
         pagerAdapter.notifyDataSetChanged();
@@ -319,7 +338,6 @@ public class PostActivity extends AppCompatActivity {
     ValueAnimator anim;
     boolean commentVisible = false;
     protected void showComments(final boolean show) {
-        Log.e("showComments", show+"");
         if(commentVisible==show)
             return;
         commentVisible = show;
@@ -327,9 +345,7 @@ public class PostActivity extends AppCompatActivity {
         int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
 
         final int heightBT = bTtoggleComment.getMeasuredHeight();
-        Log.e("showComments", "height: "+heightBT);
         float y = bTtoggleComment.getTranslationY();
-        Log.e("showComments", "y: "+y);
         bTtoggleComment.clearAnimation();
         bTtoggleComment.setVisibility(View.VISIBLE);
         bTtoggleComment.setTranslationY(y);
@@ -337,7 +353,6 @@ public class PostActivity extends AppCompatActivity {
                 .translationYBy(show ? heightBT-y : -y);
 
         float alpha = cLcomment.getAlpha();
-        Log.e("showComments", "alpha: "+alpha);
         cLcomment.clearAnimation();
         cLcomment.setAlpha(alpha);
         cLcomment.setVisibility(View.VISIBLE);
@@ -406,17 +421,31 @@ public class PostActivity extends AppCompatActivity {
 
     void loadPageAround(int position) {
         final int offset = 3;
-        for(int i=-offset; i<1+offset; i++) {
-            int offPosition = position+i;
-            if(offPosition<0)
-                continue;
-            if(offPosition>=fragInfos.size())
-                break;
-            if(fragInfos.get(offPosition).loadState==unloaded) {
-                fragInfos.get(offPosition).loadState = loading;
-                PostLoadTask loadTask = new PostLoadTask(offPosition, false);
-                loadTask.execute((Void) null);
-                updateProgress();
+        for(int range=0; range<=offset; range++) {
+            for(int i: new int[] {-1,1}) {
+                int offPosition = position+i*range;
+                if(offPosition<0)
+                    continue;
+                if(offPosition>=fragInfos.size())
+                    break;
+                FragInfo info = fragInfos.get(offPosition);
+                if(info.loadState==unloaded) {
+                    info.loadState = loading;
+                    info.task = new PostLoadTask(offPosition, false);
+                    Log.e("post load", offPosition+"");
+                    info.task.execute((Void) null);
+                    updateProgress();
+                }
+            }
+        }
+        for(int i=0; i<fragInfos.size(); i++) {
+            if(fragInfos.get(i).loadState==loading) {
+                if(Math.abs(position-i)>offset) {
+                    if(fragInfos.get(i).task!=null && fragInfos.get(i).task.getStatus()==AsyncTask.Status.RUNNING) {
+                        fragInfos.get(i).task.cancel(false);
+                        Log.e("post load cancel", i+"");
+                    }
+                }
             }
         }
     }
@@ -436,8 +465,6 @@ public class PostActivity extends AppCompatActivity {
 
     boolean showing;
     private void updateProgress() {
-        Log.e(" updateProgress", "showing: "+showing);
-
         boolean show = false;
         if(fragInfos.get(lastPosition).loadState==loading)
             show = true;
@@ -445,7 +472,6 @@ public class PostActivity extends AppCompatActivity {
             show = true;
         if(commentTask!=null)
             show = true;
-        Log.e(" updateProgress", "show: "+show);
 
         if(showing==show)
             return;
@@ -526,7 +552,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         protected String doInBackground(Void... voids) {
-            Log.e("doInBackground/Load", "Num:"+postNumber+"Id:"+postId);
+//            Log.e("doInBackground/Load", "Num:"+postNumber+"Id:"+postId);
 //            if(postId!=-1)
 //                return NetworkManager.get(PostActivity.this, NetworkManager.CLOUD_DOMAIN+"post/"+postId+"/");
 //            else
@@ -564,6 +590,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         protected void onCancelled() {
+            fragInfos.set(postNumber, new FragInfo(read, unloaded, fragInfos.get(postNumber).post));
             updateProgress();
         }
     }
@@ -619,7 +646,7 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         public Fragment getItem(int position) {
-            Log.e("getItem", "begin/"+position);
+//            Log.e("getItem", "begin/"+position);
             FragInfo fragInfo = fragInfos.get(position);
             Post post = fragInfo.post;
             if(fragInfo.loadState!=loaded)
@@ -634,7 +661,7 @@ public class PostActivity extends AppCompatActivity {
             while(fragments.size()<fragInfos.size())
                 fragments.add(PostReadFragment.newInstance(new Post()));
             fragments.set(position, item);
-            Log.e("getItem", "end/\n"+item.getClass().getSimpleName()+"/"+post.getTitle());
+//            Log.e("getItem", "end/\n"+item.getClass().getSimpleName()+"/"+post.getTitle());
             return item;
         }
 
@@ -652,10 +679,10 @@ public class PostActivity extends AppCompatActivity {
 
         @Override
         public int getItemPosition(Object object) {
-            Log.e("getItemPosition", "begin/");
+//            Log.e("getItemPosition", "begin/");
             Mode fragMode = object instanceof PostEditFragment ? edit : read;
             int id = ((PostBaseFragment)object).post.getId();
-            Log.e("getItemPosition", "middle/"+id);
+//            Log.e("getItemPosition", "middle/"+id);
             int position = -1;
             for(int i=0; i<fragInfos.size(); i++) {
                 FragInfo fragInfo = fragInfos.get(i);
@@ -664,7 +691,7 @@ public class PostActivity extends AppCompatActivity {
                     break;
                 }
             }
-            Log.e("getItemPosition", "end/"+position);
+//            Log.e("getItemPosition", "end/"+position);
             if(position>=0)
                 return position;
             else

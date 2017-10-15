@@ -1,24 +1,13 @@
 package com.holenet.nightsky;
 
-import android.content.ContentResolver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.database.Cursor;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.OpenableColumns;
 import android.util.Log;
-import android.util.StringBuilderPrinter;
-
-import org.apache.http.params.HttpParams;
-
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,30 +15,24 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.security.cert.CRL;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.net.ssl.HttpsURLConnection;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
 public class NetworkManager {
-    final static int CONNECTION_TIME = 5000;
-    final static String MAIN_DOMAIN = "http://147.46.209.151:6147/";
-    final static String CLOUD_DOMAIN = MAIN_DOMAIN+"cloud/";
-    final static int RESULT_CODE_LOGIN_FAILED = 403;
-    final static String RESULT_STRING_LOGIN_FAILED = "login failed";
+    public final static int CONNECTION_TIME_SHORT = 5000;
+    public final static int CONNECTION_TIME_LONG = 10000;
+    public final static String MAIN_DOMAIN = "http://147.46.209.151:6147/";//*/"http://118.219.23.120:8000/";
+    public final static String CLOUD_DOMAIN = MAIN_DOMAIN+"cloud/";
+    public final static int RESULT_CODE_LOGIN_FAILED = 403;
+    public final static String RESULT_STRING_LOGIN_FAILED = "login failed";
 
-    static String register(Map<String, String> data) {
+    public static String register(Map<String, String> data) {
         String url = MAIN_DOMAIN+"accounts/register/";
         Log.e("Network", "register: "+url);
 
@@ -69,7 +52,7 @@ public class NetworkManager {
             }
             byte[] postDataBytes = postData.toString().getBytes("UTF-8");
 
-            conn.setConnectTimeout(CONNECTION_TIME);
+            conn.setConnectTimeout(CONNECTION_TIME_SHORT);
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.getOutputStream().write(postDataBytes);
@@ -97,12 +80,12 @@ public class NetworkManager {
         return output.toString();
     }
 
-    static boolean login(Context context) {
+    public static boolean login(Context context) {
         SharedPreferences pref = context.getSharedPreferences("settings_login", 0);
         return login(pref.getString(context.getString(R.string.pref_key_username), ""), pref.getString(context.getString(R.string.pref_key_password), ""));
     }
 
-    static boolean login(String username, String password) {
+    public static boolean login(String username, String password) {
         String url = MAIN_DOMAIN+"accounts/login/?next=/cloud/";
         Log.e("Network", "login: "+url);
 
@@ -126,7 +109,7 @@ public class NetworkManager {
             }
             byte[] postDataBytes = postData.toString().getBytes("UTF-8");
 
-            conn.setConnectTimeout(CONNECTION_TIME);
+            conn.setConnectTimeout(CONNECTION_TIME_SHORT);
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.getOutputStream().write(postDataBytes);
@@ -141,7 +124,7 @@ public class NetworkManager {
                     String line = reader.readLine();
                     if(line==null)
                         break;
-                    Log.d("line", line);
+//                    Log.d("line", line);
                     output.append(line);
                 }
                 reader.close();
@@ -156,7 +139,7 @@ public class NetworkManager {
         }
     }
 
-    static String get(Context context, String url) {
+    public static String get(Context context, String url) {
         Log.e("Network", "get: "+url);
         if(!login(context))
             return RESULT_STRING_LOGIN_FAILED;
@@ -165,7 +148,7 @@ public class NetworkManager {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
-            conn.setConnectTimeout(CONNECTION_TIME);
+            conn.setConnectTimeout(CONNECTION_TIME_SHORT);
             conn.setDoInput(true);
             conn.setRequestMethod("GET");
 
@@ -183,7 +166,7 @@ public class NetworkManager {
                 reader.close();
                 conn.disconnect();
             } else {
-                return String.valueOf(resCode);
+                return null;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -193,7 +176,7 @@ public class NetworkManager {
         return output.toString();
     }
 
-    static String post(Context context, String url, Map<String, String> data) {
+    public static String post(Context context, String url, Map<String, String> data) {
         Log.e("Network", "post: "+url);
         if(!login(context))
             return RESULT_STRING_LOGIN_FAILED;
@@ -214,7 +197,7 @@ public class NetworkManager {
             }
             byte[] postDataBytes = postData.toString().getBytes("UTF-8");
 
-            conn.setConnectTimeout(CONNECTION_TIME);
+            conn.setConnectTimeout(CONNECTION_TIME_SHORT);
             conn.setDoOutput(true);
 //            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 //            conn.setRequestProperty("Content-Length", String.valueOf(postDataBytes.length));
@@ -236,7 +219,7 @@ public class NetworkManager {
                 reader.close();
                 conn.disconnect();
             } else {
-                return String.valueOf(resCode);
+                return null;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -246,7 +229,7 @@ public class NetworkManager {
         return output.toString();
     }
 
-    static int upload(Context context, Uri uri, String url) {
+    public static int upload(Context context, Uri uri, String url, String modelName) {
         Log.e("Network", "upload: "+uri+" / "+url);
         if(!login(context))
             return RESULT_CODE_LOGIN_FAILED;
@@ -255,6 +238,7 @@ public class NetworkManager {
         int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         cursor.moveToFirst();
         String fileName = cursor.getString(nameIndex);
+        Log.e("upload", fileName);
 
         String charset = "UTF-8";
         String boundary = Long.toHexString(System.currentTimeMillis());
@@ -265,6 +249,7 @@ public class NetworkManager {
             String csrftoken = getCsrfToken(url);
             URLConnection conn = new URL(url).openConnection();
 
+            conn.setConnectTimeout(CONNECTION_TIME_LONG);
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary="+boundary);
 
@@ -279,7 +264,7 @@ public class NetworkManager {
 
             // Send binary file.
             writer.append("--"+boundary).append(CRLF);
-            writer.append("Content-Disposition: form-data; name=\"db_file\"; filename=\""+fileName+"\"").append(CRLF);
+            writer.append("Content-Disposition: form-data; name=\""+modelName+"\"; filename=\""+fileName+"\"").append(CRLF);
             writer.append("Content-Type: "+URLConnection.guessContentTypeFromName(fileName)).append(CRLF);
             writer.append("Content-Transfer-Encoding: binary").append(CRLF);
             writer.append(CRLF).flush();
@@ -322,7 +307,7 @@ public class NetworkManager {
         }
     }
 
-    static int download(Context context, String url, File file) {
+    public static int download(Context context, String url, File path) {
         Log.e("Network", "download: "+url);
         if(!login(context))
             return RESULT_CODE_LOGIN_FAILED;
@@ -330,6 +315,7 @@ public class NetworkManager {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
+            conn.setConnectTimeout(CONNECTION_TIME_LONG);
             conn.setDoInput(true);
             conn.setRequestMethod("GET");
 
@@ -352,7 +338,7 @@ public class NetworkManager {
                 }
 
                 InputStream inputStream = conn.getInputStream();
-                FileOutputStream outputStream = new FileOutputStream(file);
+                FileOutputStream outputStream = new FileOutputStream(path);
 
                 int bytesRead;
                 byte[] buffer = new byte[4096];
@@ -372,9 +358,10 @@ public class NetworkManager {
     }
 
     // Post data rigth after call this method
-    static String getCsrfToken(String url) throws IOException {
+    public static String getCsrfToken(String url) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
 
+        conn.setConnectTimeout(CONNECTION_TIME_SHORT);
         String csrftoken = null;
         String cookies = conn.getHeaderField("Set-Cookie");
         for(String cookie: cookies.split(";")) {

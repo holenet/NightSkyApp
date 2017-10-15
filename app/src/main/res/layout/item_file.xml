@@ -27,24 +27,13 @@
         android:padding="5dp">
 
         <TextView
-            android:id="@+id/tVtitle"
+            android:id="@+id/tVname"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:ellipsize="marquee"
-            android:maxLines="1"
             android:text="Title"
             android:textSize="16sp"/>
 
-        <TextView
-            android:id="@+id/tVartist"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="marquee"
-            android:maxLines="1"
-            android:text="Artist"
-            android:textSize="16sp"/>
     </LinearLayout>
 
 </LinearLayout>

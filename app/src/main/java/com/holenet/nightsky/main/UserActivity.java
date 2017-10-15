@@ -1,13 +1,18 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.main;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.app.ActivityManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
@@ -23,6 +28,12 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.Parser;
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.music.MusicActivity;
+import com.holenet.nightsky.secret.SecretActivity;
 
 import java.net.CookieHandler;
 import java.net.CookieManager;
@@ -85,7 +96,71 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
 
         fragmentManager = getSupportFragmentManager();
 
-        showFragment(0);
+        if(requestPermission()) {
+            showFragment(0);
+        }
+
+        serviceNotice(false);
+    }
+
+    private void serviceNotice(boolean restart) {
+        Intent intent = new Intent(this, NoticeService.class);
+
+        if(getSharedPreferences("settings_notice", 0).getBoolean(getString(R.string.pref_key_notice), false)) {
+            boolean isRunning = false;
+            if(restart) {
+                stopService(intent);
+            } else {
+                ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                for(ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+                    if(NoticeService.class.getName().equals(service.service.getClassName())) {
+//                    Toast.makeText(this, AlarmService.class.getName()+" : "+service.service.getClassName(), Toast.LENGTH_SHORT).show();
+                        isRunning = true;
+                    }
+                }
+            }
+            if(!isRunning)
+                startService(intent);
+        } else {
+            stopService(intent);
+        }
+    }
+
+    private void onNoticeResult() {
+        int recentId = getIntent().getIntExtra("recent_id", -1);
+        if(recentId!=-1) {
+            getIntent().putExtra("recent_id", -1);
+            postFragment.recentId = recentId;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if(grantResults.length<=0 || grantResults[0]!=PackageManager.PERMISSION_GRANTED) {
+            finish();
+        } else {
+            drawer.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    showFragment(0);
+                }
+            }, 100);
+        }
+    }
+
+    private boolean requestPermission() {
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, R.string.error_permission, Toast.LENGTH_SHORT).show();
+            if(ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                Log.e("request", "??");
+            } else {
+                Log.e("request", "permmm");
+            }
+            Log.e("requestPermission", "");
+            ActivityCompat.requestPermissions(this, new String[] {android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
+            return false;
+        }
+        return true;
     }
 
     private void showFragment(int which) {
@@ -116,7 +191,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         getSupportActionBar().setTitle(fragmentName);
         FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
         fragmentTransaction.replace(R.id.rLfragment, currentFragment, fragmentName);
-        fragmentTransaction.commit();
+        fragmentTransaction.commitAllowingStateLoss();
     }
 
     @Override
@@ -143,6 +218,9 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
         }
         drawer.setDrawerLockMode(in ? DrawerLayout.LOCK_MODE_UNLOCKED : DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
         showFragment(in ? 2 : 0);
+        if(in) {
+            onNoticeResult();
+        }
     }
 
     public void requestLogin() {
@@ -153,7 +231,9 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         this.menu = menu;
-        getMenuInflater().inflate(R.menu.user, menu);
+        getMenuInflater().inflate(R.menu.menu_user, menu);
+        menu.findItem(R.id.mIsecret).setVisible(false);
+        menu.findItem(R.id.mIsecret).setVisible(getSharedPreferences("secret", 0).getBoolean("activated", false));
         return true;
     }
 
@@ -161,9 +241,16 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if(id==R.id.mIupload) {
+        if(id==R.id.mIsecret) {
+            Intent intent = new Intent(this, SecretActivity.class);
+            startActivity(intent);
+        } else if(id==R.id.mIupload) {
             if(currentFragment instanceof FileFragment) {
                 fileFragment.requestSelectFile();
+            }
+            if(currentFragment instanceof MusicFragment) {
+                Intent intent = new Intent(this, MusicActivity.class);
+                musicFragment.startActivityForResult(intent, MusicFragment.REQUEST_MUSIC_DETAIL);
             }
         } else if(id==R.id.mIexit) {
             finish();
@@ -188,9 +275,7 @@ public class UserActivity extends AppCompatActivity implements NavigationView.On
 //            showFragment(4);
         } else if(id==R.id.nVfile) {
             showFragment(5);
-        }
-
-        if(id==R.id.nVsetting) {
+        } else if(id==R.id.nVsetting) {
             Intent intent = new Intent(UserActivity.this, SettingsActivity.class);
             startActivity(intent);
         } else if(id==R.id.nVlogout) {

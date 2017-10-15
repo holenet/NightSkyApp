@@ -1,4 +1,4 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.main;
 
 import android.content.Context;
 import android.content.Intent;
@@ -8,7 +8,6 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +16,12 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.Parser;
+import com.holenet.nightsky.post.PostActivity;
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Post;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +40,8 @@ public class PostFragment extends Fragment {
     ListView lVposts;
     PostsAdapter adapter;
 
+    int recentId = -1;
+
     @Override
     public View onCreateView(final LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         context = getContext();
@@ -42,14 +49,11 @@ public class PostFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_post, container, false);
 
-        fABadd = (FloatingActionButton) v.findViewById(R.id.fABadd);
+        fABadd = v.findViewById(R.id.fABadd);
         fABadd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(context, PostActivity.class);
-                intent.putExtra("post_count_all", count);
-                startActivityForResult(intent, REQUEST_POST_DETAIL);
-                activity.showProgress(true);
+                openDetailView(new Intent());
             }
         });
 
@@ -59,17 +63,20 @@ public class PostFragment extends Fragment {
         lVposts.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent intent = new Intent(context, PostActivity.class);
-                intent.putExtra("post_count_all", count);
-                intent.putExtra("post_current_page", position);
-                startActivityForResult(intent, REQUEST_POST_DETAIL);
-                activity.showProgress(true);
+                openDetailView(new Intent().putExtra("post_current_page", position));
             }
         });
 
         refresh();
 
         return v;
+    }
+
+    protected void openDetailView(Intent intent) {
+        intent.setClass(context, PostActivity.class);
+        intent.putExtra("post_count_all", count);
+        startActivityForResult(intent, REQUEST_POST_DETAIL);
+        activity.showProgress(true);
     }
 
     @Override
@@ -110,13 +117,25 @@ public class PostFragment extends Fragment {
                 activity.requestLogin();
             }
 
-//            List<Post> posts = Parser.getPostListJSON(result);
-            List<Post> posts = Parser.getPostListHTML(result);
+            List<Post> posts = Parser.getPostListJSON(result);
 
             adapter.setItems(posts);
             adapter.notifyDataSetChanged();
 
             count = posts.size();
+
+            if(recentId!=-1) {
+                int currentPage = -1;
+                for(int i=0; i<posts.size(); i++) {
+                    if(recentId==posts.get(i).getId()) {
+                        currentPage = i;
+                    }
+                }
+                if(currentPage!=-1) {
+                    openDetailView(new Intent().putExtra("post_recent_id", recentId));
+                }
+                recentId = -1;
+            }
         }
 
         @Override
@@ -144,19 +163,19 @@ public class PostFragment extends Fragment {
 
             Post post = items.get(position);
             if(post!=null) {
-                TextView tVtitle = (TextView) v.findViewById(R.id.tVtitle);
+                TextView tVtitle = v.findViewById(R.id.tVtitle);
                 if(tVtitle!=null)
                     tVtitle.setText(post.getTitle());
-                TextView tVtext = (TextView) v.findViewById(R.id.tVtext);
+                TextView tVtext = v.findViewById(R.id.tVtext);
                 if(tVtext!=null)
                     tVtext.setText(post.getText());
-                TextView tVauthor = (TextView) v.findViewById(R.id.tVauthor);
+                TextView tVauthor = v.findViewById(R.id.tVauthor);
                 if(tVauthor!=null)
                     tVauthor.setText(post.getAuthor());
-                TextView tVdate = (TextView) v.findViewById(R.id.tVdate);
+                TextView tVdate = v.findViewById(R.id.tVdate);
                 if(tVdate!=null)
                     tVdate.setText(post.getDatetime()[0]);
-                TextView tVcommentCount = (TextView) v.findViewById(R.id.tVcommentCount);
+                TextView tVcommentCount = v.findViewById(R.id.tVcommentCount);
                 if(tVcommentCount!=null)
                     tVcommentCount.setText(String.valueOf(post.getCommentCount()));
             }

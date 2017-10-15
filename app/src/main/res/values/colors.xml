@@ -5,4 +5,5 @@
     <color name="colorAccent">#34b1ff</color>
     <color name="device">#a5d6a7</color>
     <color name="server">#e1bee7</color>
+    <color name="blank">#00FFFFFF</color>
 </resources>

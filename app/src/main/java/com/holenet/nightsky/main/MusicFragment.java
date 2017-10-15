@@ -1,22 +1,13 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.main;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.media.MediaExtractor;
-import android.media.MediaFormat;
-import android.media.MediaMetadataRetriever;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
-import android.support.v4.content.ContextCompat;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,10 +17,18 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.holenet.nightsky.DatabaseHelper;
+import com.holenet.nightsky.NetworkManager;
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Music;
+import com.holenet.nightsky.music.MusicActivity;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class MusicFragment extends Fragment {
+    final static int REQUEST_MUSIC_DETAIL = 2000;
+
     Context context;
     UserActivity activity;
 
@@ -64,39 +63,24 @@ public class MusicFragment extends Fragment {
 
         refresh();
 
+        startActivityForResult(new Intent(context, MusicActivity.class), REQUEST_MUSIC_DETAIL);
+
         return v;
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if(grantResults.length<=0 || grantResults[0]!=PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(context, R.string.error_permission, Toast.LENGTH_SHORT).show();
-        } else {
-            refresh();
-        }
-    }
-
-    private boolean requestPermission() {
-        if(ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED) {
-//            Toast.makeText(context, R.string.error_permission, Toast.LENGTH_LONG).show();
-/*
-            if(ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                Log.e("request", "??");
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==REQUEST_MUSIC_DETAIL) {
+            if(resultCode==NetworkManager.RESULT_CODE_LOGIN_FAILED) {
+                activity.requestLogin();
             } else {
-                Log.e("request", "permmm");
+                refresh();
             }
-*/
-            Log.e("requestPermission", "");
-            ActivityCompat.requestPermissions(activity, new String[] {android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
-            return false;
         }
-        return true;
     }
 
     void refresh() {
-        if(!requestPermission()) {
-            return;
-        }
         if(listTask!=null)
             return;
 
@@ -120,6 +104,7 @@ public class MusicFragment extends Fragment {
 
         @Override
         protected String doInBackground(Void... voids) {
+/*
             SQLiteDatabase db = dbHelper.getReadableDatabase();
             Cursor c = db.rawQuery("select device_id, server_id, title, artist, album, path from "+DatabaseHelper.musicTable, null);
 
@@ -150,6 +135,7 @@ public class MusicFragment extends Fragment {
 
             c.close();
 
+*/
             return null;
         }
 

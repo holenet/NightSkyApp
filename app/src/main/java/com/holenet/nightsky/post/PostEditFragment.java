@@ -1,15 +1,14 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.post;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
-import static android.content.Context.INPUT_METHOD_SERVICE;
+import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Post;
 
 public class PostEditFragment extends PostBaseFragment {
     PostActivity activity;
@@ -37,8 +36,8 @@ public class PostEditFragment extends PostBaseFragment {
 
         View v = inflater.inflate(R.layout.fragment_post_edit, container, false);
 
-        eTtitle = (EditText) v.findViewById(R.id.eTtitle);
-        eTtext = (EditText) v.findViewById(R.id.eTtext);
+        eTtitle = v.findViewById(R.id.eTtitle);
+        eTtext = v.findViewById(R.id.eTtext);
 
         eTtitle.setText(post.getTitle());
         eTtext.setText(post.getText());

@@ -1,4 +1,4 @@
-package com.holenet.nightsky;
+package com.holenet.nightsky.item;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -6,7 +6,7 @@ import android.os.Parcelable;
 import java.util.ArrayList;
 import java.util.List;
 
-class Post implements Parcelable {
+public class Post implements Parcelable {
     int id;
     private String title;
     private String author;

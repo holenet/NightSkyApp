@@ -196,4 +196,7 @@
         "For example, position the FAB to one side of stream of a cards so the FAB won’t interfere "
         "when a user tries to pick up one of cards.\n\n"
     </string>
+    <string name="pref_key_notice">notice</string>
+    <string name="pref_key_curr_list_id">current_play_list_id</string>
+    <string name="title_activity_secret">SecretActivity</string>
 </resources>
