@@ -1,25 +1,26 @@
 package com.holenet.nightsky.item;
 
 public abstract class BaseLog {
+    private int pk;
     private String createdAt;
     private String modifiedAt;
     private Watch watch;
 
+    public BaseLog(int pk, String createdAt, Watch watch) {
+        this.pk = pk;
+        this.createdAt = createdAt;
+        this.watch = watch;
+    }
+
     public BaseLog() {
     }
 
-    public BaseLog(String createdAt, String modifiedAt, Watch watch) {
-        this.createdAt = createdAt;
-        this.modifiedAt = modifiedAt;
-        this.watch = watch;
+    public int getPk() {
+        return pk;
     }
 
-    public BaseLog(String createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public BaseLog(Watch watch) {
-        this.watch = watch;
+    public void setPk(int pk) {
+        this.pk = pk;
     }
 
     public String getCreatedAt() {

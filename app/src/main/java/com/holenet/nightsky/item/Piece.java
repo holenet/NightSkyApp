@@ -4,20 +4,40 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Piece {
+    private int pk;
     private String title;
     private String comment;
     private List<Watch> watches;
 
+    public Piece(int pk) {
+        this.pk = pk;
+    }
+
+    public Piece(int pk, String title) {
+        this.pk = pk;
+        this.title = title;
+        watches = new ArrayList<>();
+    }
+
     public Piece(String title, String comment) {
         this.title = title;
         this.comment = comment;
+        watches = new ArrayList<>();
     }
 
-    public Piece(String title, String comment, List<Watch> watches) {
+    public Piece(int pk, String title, String comment) {
+        this.pk = pk;
         this.title = title;
         this.comment = comment;
-        this.watches = watches;
-        setPieceForWatch(watches);
+        watches = new ArrayList<>();
+    }
+
+    public int getPk() {
+        return pk;
+    }
+
+    public void setPk(int pk) {
+        this.pk = pk;
     }
 
     public String getTitle() {

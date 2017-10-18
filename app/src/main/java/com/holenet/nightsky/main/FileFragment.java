@@ -152,7 +152,7 @@ public class FileFragment extends Fragment {
         }
     }
 
-    class FileUploadTask extends AsyncTask<Void, Void, Integer> {
+    class FileUploadTask extends AsyncTask<Void, Void, String> {
         Uri uri;
 
         FileUploadTask(Uri uri) {
@@ -160,16 +160,16 @@ public class FileFragment extends Fragment {
         }
 
         @Override
-        protected Integer doInBackground(Void... params) {
-            return NetworkManager.upload(context, uri, NetworkManager.CLOUD_DOMAIN+"file/upload/", "user_file");
+        protected String doInBackground(Void... params) {
+            return NetworkManager.upload(context, NetworkManager.CLOUD_DOMAIN+"file/upload/", "user_file", uri);
         }
 
         @Override
-        protected void onPostExecute(Integer result) {
+        protected void onPostExecute(String result) {
             uploadTask = null;
             activity.showProgress(false);
 
-            if(result==null || result==-1) {
+            if(result==null || result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
                 Toast.makeText(context, R.string.error_network, Toast.LENGTH_SHORT).show();
             } else {
                 refresh();

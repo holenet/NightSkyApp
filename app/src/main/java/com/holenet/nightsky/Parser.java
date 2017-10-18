@@ -2,10 +2,15 @@ package com.holenet.nightsky;
 
 import android.util.Log;
 
+import com.holenet.nightsky.item.BaseLog;
 import com.holenet.nightsky.item.Comment;
 import com.holenet.nightsky.item.FileItem;
+import com.holenet.nightsky.item.ImageLog;
 import com.holenet.nightsky.item.Music;
+import com.holenet.nightsky.item.Piece;
 import com.holenet.nightsky.item.Post;
+import com.holenet.nightsky.item.TextLog;
+import com.holenet.nightsky.item.Watch;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -15,7 +20,9 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 public class Parser {
@@ -188,7 +195,122 @@ public class Parser {
         }
     }
 
+    public static List<BaseLog> getLogListJSON(String res) {
+        try {
+            List<BaseLog> logItems = new ArrayList<>();
+            JSONArray jaLogs = new JSONArray(res);
+            for(int i=0; i<jaLogs.length(); i++) {
+                BaseLog log = getLogJSON(jaLogs.getJSONObject(i));
+                if(log!=null)
+                    logItems.add(log);
+            }
+            return logItems;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static BaseLog getLogJSON(String res) {
+        try {
+            JSONObject joLog = new JSONObject(res);
+            return getLogJSON(joLog);
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static BaseLog getLogJSON(JSONObject joLog) throws Exception {
+        int pk = joLog.getInt("pk");
+        String createdAt = getCleanDatetime(joLog.getString("created_at"));
+        String type = joLog.getString("type");
+        Watch watch = null;
+        String watchPkString = joLog.getString("watch_pk");
+        if(!"null".equals(watchPkString)) {
+            watch = new Watch(Integer.parseInt(watchPkString));
+        }
+        BaseLog log;
+        if("text".equals(type)) {
+            log = new TextLog(pk, createdAt, watch, joLog.getString("text"));
+        } else {
+            log = new ImageLog(pk, createdAt, watch, joLog.getString("image_path"));
+        }
+        return log;
+    }
+
+    public static List<String> getDatesJSON(String res) {
+        try {
+            List<String> dateItems = new ArrayList<>();
+            JSONArray jaDates = new JSONArray(res);
+            for(int i=0; i<jaDates.length(); i++) {
+                dateItems.add(jaDates.getString(i));
+            }
+            return dateItems;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static Piece getPieceJSON(String res) {
+        try {
+            JSONObject joPiece = new JSONObject(res);
+            return getPieceJSON(joPiece);
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static Piece getPieceJSON(JSONObject joPiece) throws Exception {
+        int pk = joPiece.getInt("pk");
+        String title = joPiece.getString("title");
+        String comment = joPiece.getString("comment");
+        // TODO: extract other properties
+        return new Piece(pk, title, comment);
+    }
+
+    public static Watch getWatchJSON(String res) {
+        try {
+            JSONObject joWatch = new JSONObject(res);
+            return getWatchJSON(joWatch);
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static Watch getWatchJSON(JSONObject joWatch) throws Exception {
+        int pk = joWatch.getInt("pk");
+        int piecePk = joWatch.getInt("piece_pk");
+        int start = joWatch.getInt("start");
+        int end = joWatch.getInt("end");
+        String date = joWatch.getString("date");
+        return new Watch(pk, new Piece(piecePk), start, end, date);
+    }
+
+    private static String getCleanDatetime(String res) {
+        return res.replace("T", " ");
+    }
+
+    public static String getDate(String datetime) {
+        return datetime.split(" ")[0];
+    }
+
+    public static String getTime(String datetime) {
+        return datetime.split(" ")[1];
+    }
+
+    public static String getSimpleTime(String datetime) {
+        return datetime.split(" ")[1].split("\\.")[0];
+    }
+
     private static String[] getDatetime(String res) {
         return new String[] {res.split(" ")[0], res.split(" ")[1].split("\\.")[0]};
+    }
+
+    public static String getTodayDate() {
+        return new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
     }
 }

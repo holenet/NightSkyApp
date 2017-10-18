@@ -199,4 +199,7 @@
     <string name="pref_key_notice">notice</string>
     <string name="pref_key_curr_list_id">current_play_list_id</string>
     <string name="title_activity_secret">SecretActivity</string>
+    <string name="error_unknown">Unknown error... try again...</string>
+    <string name="error_try_later">Try later...</string>
+    <string name="title_activity_piece">PieceActivity</string>
 </resources>

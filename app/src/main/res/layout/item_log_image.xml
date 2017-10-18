@@ -3,6 +3,7 @@
               xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
+              android:background="@drawable/selector_list_item"
               android:orientation="vertical"
               android:padding="10dp">
 
@@ -10,11 +11,11 @@
         android:id="@+id/tVdatetime"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
+        android:layout_margin="5dp"
         android:text="datetime"/>
 
     <ImageView
-        android:id="@+id/imageView"
+        android:id="@+id/iVimage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="5dp"

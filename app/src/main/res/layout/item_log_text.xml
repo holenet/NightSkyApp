@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
+              android:background="@drawable/selector_list_item"
               android:orientation="vertical"
               android:padding="10dp">
 
@@ -9,7 +10,7 @@
         android:id="@+id/tVdatetime"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="10dp"
+        android:layout_margin="5dp"
         android:text="datetime"/>
 
     <TextView

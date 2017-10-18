@@ -7,10 +7,15 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.io.File;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
+    public final static int databaseVersion = 5;
+
     public final static String musicListTable = "music_list";
     public final static String musicTable = "music";
     public final static String musicLinkTable = "music_link";
-    public final static int databaseVersion = 3;
+
+    public final static String pieceTable = "piece";
+
+    public final static String watchTable = "watch";
 
     public DatabaseHelper(Context context) {
         super(context, context.getExternalFilesDir(null).toString()+File.separator+"database.db", null, databaseVersion);
@@ -20,7 +25,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         String CREATE_SQL = "create table "+musicListTable+"("
                 + " _id integer PRIMARY KEY autoincrement, "
-//                + " datetime text, "
                 + " name text)";
         try {
             db.execSQL(CREATE_SQL);
@@ -51,6 +55,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } catch(Exception e) {
             e.printStackTrace();
         }
+
+        CREATE_SQL = "create table "+pieceTable+"("
+                + " _id integer PRIMARY KEY autoincrement, "
+                + " pk int, "
+                + " title text)";
+        try {
+            db.execSQL(CREATE_SQL);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+
+        CREATE_SQL = "create table "+watchTable+"("
+                + " _id integer PRIMARY KEY autoincrement, "
+                + " pk int, "
+                + " piece_pk int, "
+                + " start int, "
+                + " end int, "
+                + " date text)";
+        try {
+            db.execSQL(CREATE_SQL);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -63,6 +90,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("drop table if exists "+musicListTable);
         db.execSQL("drop table if exists "+musicTable);
         db.execSQL("drop table if exists "+musicLinkTable);
+        db.execSQL("drop table if exists "+pieceTable);
+        db.execSQL("drop table if exists "+watchTable);
         onCreate(db);
     }
 

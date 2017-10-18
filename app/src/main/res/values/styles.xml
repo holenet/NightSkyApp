@@ -9,6 +9,7 @@
         <item name="colorButtonNormal">@color/colorAccent</item>
         <item name="android:buttonStyle">@style/costomButton</item>
         <item name="android:textColor">#333</item>
+        <item name="windowActionModeOverlay">true</item>
     </style>
 
     <style name="costomButton" parent="Base.Widget.AppCompat.Button">

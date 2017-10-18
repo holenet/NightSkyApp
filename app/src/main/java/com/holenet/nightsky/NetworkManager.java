@@ -6,6 +6,9 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.OpenableColumns;
 import android.util.Log;
+
+import org.json.JSONArray;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -29,6 +32,7 @@ public class NetworkManager {
     public final static int CONNECTION_TIME_LONG = 10000;
     public final static String MAIN_DOMAIN = "http://147.46.209.151:6147/";//*/"http://118.219.23.120:8000/";
     public final static String CLOUD_DOMAIN = MAIN_DOMAIN+"cloud/";
+    public final static String SECRET_DOMAIN = MAIN_DOMAIN+"secret/secret/secret/";
     public final static int RESULT_CODE_LOGIN_FAILED = 403;
     public final static String RESULT_STRING_LOGIN_FAILED = "login failed";
 
@@ -189,11 +193,23 @@ public class NetworkManager {
             data.put("csrfmiddlewaretoken", csrftoken);
             StringBuilder postData = new StringBuilder();
             for(Map.Entry<String,String> param : data.entrySet()) {
-                if(postData.length()!=0)
-                    postData.append("&");
-                postData.append(URLEncoder.encode(param.getKey(), "UTF-8"));
-                postData.append('=');
-                postData.append(URLEncoder.encode(param.getValue(), "UTF-8"));
+                try {
+                    JSONArray ja = new JSONArray(param.getValue());
+                    for(int i=0; i<ja.length(); i++) {
+                        String value = ja.getString(i);
+                        if(postData.length()!=0)
+                            postData.append("&");
+                        postData.append(URLEncoder.encode(param.getKey(), "UTF-8"));
+                        postData.append('=');
+                        postData.append(URLEncoder.encode(value, "UTF-8"));
+                    }
+                } catch(Exception e) {
+                    if(postData.length()!=0)
+                        postData.append("&");
+                    postData.append(URLEncoder.encode(param.getKey(), "UTF-8"));
+                    postData.append('=');
+                    postData.append(URLEncoder.encode(param.getValue(), "UTF-8"));
+                }
             }
             byte[] postDataBytes = postData.toString().getBytes("UTF-8");
 
@@ -229,15 +245,21 @@ public class NetworkManager {
         return output.toString();
     }
 
-    public static int upload(Context context, Uri uri, String url, String modelName) {
+    public static String upload(Context context, String url, String modelName, String path) {
+        Uri uri = Uri.fromFile(new File(path));
+        return upload(context, url, modelName, uri);
+    }
+
+    public static String upload(Context context, String url, String modelName, Uri uri) {
         Log.e("Network", "upload: "+uri+" / "+url);
         if(!login(context))
-            return RESULT_CODE_LOGIN_FAILED;
+            return RESULT_STRING_LOGIN_FAILED;
 
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         cursor.moveToFirst();
         String fileName = cursor.getString(nameIndex);
+        cursor.close();
         Log.e("upload", fileName);
 
         String charset = "UTF-8";
@@ -293,17 +315,17 @@ public class NetworkManager {
             resCode = ((HttpURLConnection)conn).getResponseCode();
             Log.d("resCode", resCode+"");
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String line = "";
-            StringBuilder stringBuilder = new StringBuilder();
+            String line;
+            StringBuilder response = new StringBuilder();
             while((line=reader.readLine())!=null) {
                 Log.e("upload", line);
-                stringBuilder.append(line).append("\n");
+                response.append(line).append("\n");
             }
             reader.close();
-            return resCode;
+            return response.toString();
         } catch(Exception e) {
             e.printStackTrace();
-            return -1;
+            return null;
         }
     }
 

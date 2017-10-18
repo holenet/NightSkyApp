@@ -3,7 +3,9 @@ package com.holenet.nightsky.item;
 public class TextLog extends BaseLog {
     private String text;
 
-    public TextLog() {
+    public TextLog(int pk, String createdAt, Watch watch, String text) {
+        super(pk, createdAt, watch);
+        this.text = text;
     }
 
     public TextLog(String text) {

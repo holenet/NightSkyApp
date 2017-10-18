@@ -1,0 +1,10 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:tools="http://schemas.android.com/tools"
+      tools:context="com.holenet.nightsky.post.PostActivity">
+    <item
+        android:id="@+id/mIrefresh"
+        android:icon="@drawable/ic_refresh_white_24dp"
+        android:title="Refresh"
+        app:showAsAction="always"/>
+</menu>
