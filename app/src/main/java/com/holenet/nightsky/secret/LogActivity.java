@@ -1,5 +1,7 @@
 package com.holenet.nightsky.secret;
 
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,9 +17,12 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ProgressBar;
 
+import com.holenet.nightsky.DatabaseHelper;
 import com.holenet.nightsky.NetworkManager;
 import com.holenet.nightsky.Parser;
 import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Piece;
+import com.holenet.nightsky.item.Watch;
 
 import java.net.CookieHandler;
 import java.net.CookieManager;
@@ -37,13 +42,15 @@ public class LogActivity extends AppCompatActivity {
 
         public void setToday() {
             date = Parser.getTodayDate();
-            if(fragment!=null)
+            if(fragment!=null && fragment.isAdded())
                 fragment.setToday();
         }
     }
     List<FragInfo> fragInfos;
 
     DateListTask listTask;
+    PieceUpdateTask pieceUpdateTask;
+    WatchUpdateTask watchUpdateTask;
 
     private ViewPager viewPager;
     private PagerAdapter pagerAdapter;
@@ -83,6 +90,7 @@ public class LogActivity extends AppCompatActivity {
                             actionMode.finish();
                         }
                     }
+                    updateProgress();
                 }
                 lastCurrent = position;
             }
@@ -102,6 +110,16 @@ public class LogActivity extends AppCompatActivity {
             return;
         listTask = new DateListTask(first);
         listTask.execute((Void) null);
+        if(first) {
+            if(pieceUpdateTask==null) {
+                pieceUpdateTask = new PieceUpdateTask();
+                pieceUpdateTask.execute((Void) null);
+            }
+            if(watchUpdateTask==null) {
+                watchUpdateTask = new WatchUpdateTask();
+                watchUpdateTask.execute((Void) null);
+            }
+        }
     }
 
     Menu menu;
@@ -134,19 +152,18 @@ public class LogActivity extends AppCompatActivity {
     boolean showing;
     public void updateProgress() {
         boolean show = false;
-        for(FragInfo info: fragInfos) {
+        if(viewPager.getCurrentItem()<fragInfos.size()) {
+            FragInfo info = fragInfos.get(viewPager.getCurrentItem());
             if(info.fragment!=null) {
                 LogFragment fragment = info.fragment;
-                if(fragment.loadTask!=null || fragment.saveTask!=null
+                show = fragment.loadTask!=null
+                        || fragment.saveTask!=null
                         || fragment.deleteTask!=null
                         || fragment.registerTask!=null
-                        || fragment.linkTask!=null) {
-                    show = true;
-                    break;
-                }
+                        || fragment.linkTask!=null;
             }
         }
-        if(listTask!=null) {
+        if(listTask!=null || pieceUpdateTask!=null || watchUpdateTask!=null) {
             show = true;
         }
         if(showing==show)
@@ -162,6 +179,7 @@ public class LogActivity extends AppCompatActivity {
     }
 
     protected void requestPurge(LogFragment fragment) {
+        Log.e("onPurge", fragment.date+"/"+Parser.getTodayDate());
         for(int i=0; i<fragInfos.size(); i++) {
             if(fragInfos.get(i).fragment==fragment) {
                 fragInfos.remove(i);
@@ -204,7 +222,7 @@ public class LogActivity extends AppCompatActivity {
                 fragInfos.add(new FragInfo(date, null));
             }
             String todayDate = Parser.getTodayDate();
-            if(!fragInfos.get(fragInfos.size()-1).date.equals(todayDate)) {
+            if(fragInfos.size()==0 || !fragInfos.get(fragInfos.size()-1).date.equals(todayDate)) {
                 fragInfos.add(new FragInfo(todayDate, null));
             }
             pagerAdapter.notifyDataSetChanged();
@@ -216,6 +234,85 @@ public class LogActivity extends AppCompatActivity {
         @Override
         protected void onCancelled() {
             listTask = null;
+            updateProgress();
+        }
+    }
+
+    private class PieceUpdateTask extends AsyncTask<Void, Void, String> {
+        @Override
+        protected void onPreExecute() {
+            updateProgress();
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            return NetworkManager.get(LogActivity.this, NetworkManager.SECRET_DOMAIN+"piece/list/");
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            pieceUpdateTask = null;
+            updateProgress();
+
+            List<Piece> pieces = Parser.getPiecesJSON(result);
+            if(pieces==null) {
+                return;
+            }
+            SQLiteDatabase db = new DatabaseHelper(LogActivity.this).getWritableDatabase();
+            db.delete(DatabaseHelper.pieceTable, null, null);
+            for(Piece piece: pieces) {
+                ContentValues values = new ContentValues();
+                values.put("pk", piece.getPk());
+                values.put("title", piece.getTitle());
+                db.insert(DatabaseHelper.pieceTable, null, values);
+            }
+            db.close();
+        }
+
+        @Override
+        protected void onCancelled() {
+            pieceUpdateTask = null;
+            updateProgress();
+        }
+    }
+
+    private class WatchUpdateTask extends AsyncTask<Void, Void, String> {
+        @Override
+        protected void onPreExecute() {
+            updateProgress();
+        }
+
+        @Override
+        protected String doInBackground(Void... voids) {
+            return NetworkManager.get(LogActivity.this, NetworkManager.SECRET_DOMAIN+"watch/list/");
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            watchUpdateTask = null;
+            updateProgress();
+
+            List<Watch> watches = Parser.getWatchesJSON(result);
+            if(watches==null) {
+                return;
+            }
+            SQLiteDatabase db = new DatabaseHelper(LogActivity.this).getWritableDatabase();
+            db.delete(DatabaseHelper.watchTable, null, null);
+            for(Watch watch: watches) {
+                ContentValues values = new ContentValues();
+                values.put("pk", watch.getPk());
+                values.put("piece_pk", watch.getPiece().getPk());
+                values.put("start", watch.getStart());
+                values.put("end", watch.getEnd());
+                values.put("date", watch.getDate());
+                db.insert(DatabaseHelper.watchTable, null, values);
+            }
+            db.close();
+        }
+
+        @Override
+        protected void onCancelled() {
+            watchUpdateTask = null;
             updateProgress();
         }
     }
@@ -268,7 +365,7 @@ public class LogActivity extends AppCompatActivity {
                 if(fragInfos.size()==0)
                     return;
                 FragInfo lastFrag = fragInfos.get(fragInfos.size()-1);
-                if(!todayDate.equals(lastFrag.date)) {
+                if(!todayDate.equals(lastFrag.date) && lastFrag.fragment!=null) {
                     boolean isCurrentLast = viewPager.getCurrentItem()==pagerAdapter.getCount()-1;
                     if(!lastFrag.fragment.isEmpty()) {
                         fragInfos.add(fragInfos.size()-1, new FragInfo(lastFrag.date, null));

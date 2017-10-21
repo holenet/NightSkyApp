@@ -1,13 +1,17 @@
 package com.holenet.nightsky;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+
+import com.holenet.nightsky.item.BaseLog;
+import com.holenet.nightsky.item.Watch;
 
 import java.io.File;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-    public final static int databaseVersion = 5;
+    public final static int databaseVersion = 6;
 
     public final static String musicListTable = "music_list";
     public final static String musicTable = "music";
@@ -98,5 +102,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public boolean refresh(Context context) {
         // TODO: implement this method
         return false;
+    }
+
+    public static String getWatchString(Context context, BaseLog log) {
+        Watch watch = log.getWatch();
+        if(watch==null)
+            return "";
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        Cursor c = db.rawQuery("select piece_pk, start, end from "+DatabaseHelper.watchTable+" where pk = "+watch.getPk(), null);
+        c.moveToNext();
+        int piecePk = c.getInt(0);
+        int start = c.getInt(1);
+        int end = c.getInt(2);
+        Cursor cc = db.rawQuery("select title from "+DatabaseHelper.pieceTable+" where pk = "+piecePk, null);
+        cc.moveToNext();
+        String title = cc.getString(0);
+        cc.close();
+        c.close();
+
+        return title+" ["+(start==end ? start : start+"-"+end)+"]";
     }
 }

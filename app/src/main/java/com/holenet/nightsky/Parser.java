@@ -195,7 +195,7 @@ public class Parser {
         }
     }
 
-    public static List<BaseLog> getLogListJSON(String res) {
+    public static List<BaseLog> getLogsJSON(String res) {
         try {
             List<BaseLog> logItems = new ArrayList<>();
             JSONArray jaLogs = new JSONArray(res);
@@ -253,6 +253,22 @@ public class Parser {
         }
     }
 
+    public static List<Piece> getPiecesJSON(String res) {
+        try {
+            List<Piece> pieces = new ArrayList<>();
+            JSONArray jaPieces = new JSONArray(res);
+            for(int i=0; i<jaPieces.length(); i++) {
+                Piece piece = getPieceJSON(jaPieces.getJSONObject(i));
+                if(piece!=null)
+                    pieces.add(piece);
+            }
+            return pieces;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public static Piece getPieceJSON(String res) {
         try {
             JSONObject joPiece = new JSONObject(res);
@@ -269,6 +285,22 @@ public class Parser {
         String comment = joPiece.getString("comment");
         // TODO: extract other properties
         return new Piece(pk, title, comment);
+    }
+
+    public static List<Watch> getWatchesJSON(String res) {
+        try {
+            List<Watch> watches = new ArrayList<>();
+            JSONArray jaWatches = new JSONArray(res);
+            for(int i=0; i<jaWatches.length(); i++) {
+                Watch watch = getWatchJSON(jaWatches.getJSONObject(i));
+                if(watch!=null)
+                    watches.add(watch);
+            }
+            return watches;
+        } catch(Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public static Watch getWatchJSON(String res) {

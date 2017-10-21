@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
@@ -13,6 +14,8 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.ActionMode;
@@ -100,36 +103,22 @@ public class LogFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        activity = (LogActivity) getActivity();
-
         View v = inflater.inflate(R.layout.fragment_log, container, false);
 
         lVlogs = v.findViewById(R.id.lVlogs);
         if(logs==null) {
             logs = new ArrayList<>();
         }
-        adapter = new LogAdapter(getContext(), R.layout.item_log_text, logs);
+        adapter = new LogAdapter(getContext(), R.layout.item_log, logs);
         lVlogs.setAdapter(adapter);
         lVlogs.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 if(!multiMode) {
-                    Watch watch = adapter.getItem(i).getWatch();
-                    if(watch!=null) {
-                        SQLiteDatabase db = new DatabaseHelper(getContext()).getReadableDatabase();
-                        Cursor c = db.rawQuery("select piece_pk, start, end from "+DatabaseHelper.watchTable+" where pk = "+watch.getPk(), null);
-                        c.moveToNext();
-                        int piecePk = c.getInt(0);
-                        int start = c.getInt(1);
-                        int end = c.getInt(2);
-                        Cursor cc = db.rawQuery("select title from "+DatabaseHelper.pieceTable+" where pk = "+piecePk, null);
-                        cc.moveToNext();
-                        String title = cc.getString(0);
-                        cc.close();
-                        c.close();
-
-                        Toast.makeText(activity, title+" ["+start+"-"+end+"]", Toast.LENGTH_SHORT).show();
-                    }
+                    // TODO: implement full screen mode (with move and pinch) for image
+                    String watchString = DatabaseHelper.getWatchString(getContext(), adapter.getItem(i));
+                    if(!watchString.isEmpty())
+                        Toast.makeText(activity, watchString, Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -162,6 +151,20 @@ public class LogFragment extends Fragment {
             tVtitle = v.findViewById(R.id.tVtitle);
             tVrange = v.findViewById(R.id.tVrange);
             eTlogText = v.findViewById(R.id.eTlogText);
+            eTlogText.setText(activity.getSharedPreferences("log_settings", 0).getString("temp_log_text", ""));
+            eTlogText.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                }
+                @Override
+                public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                }
+                @Override
+                public void afterTextChanged(Editable editable) {
+                    saveLogText(false);
+                }
+            });
+            eTlogText.requestFocus();
             bTlogSave = v.findViewById(R.id.bTlogSave);
             bTlogSave.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -178,9 +181,28 @@ public class LogFragment extends Fragment {
             });
         }
 
-        refresh();
-
         return v;
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        activity = (LogActivity) context;
+        refresh();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        saveLogText(false);
+    }
+
+    private void saveLogText(boolean empty) {
+        if(eTlogText!=null) {
+            SharedPreferences.Editor editor = activity.getSharedPreferences("log_settings", 0).edit();
+            editor.putString("temp_log_text", empty ? "" : eTlogText.getText().toString());
+            editor.apply();
+        }
     }
 
     public void refresh() {
@@ -237,7 +259,7 @@ public class LogFragment extends Fragment {
                             actionMode.finish();
                             break;
                         case R.id.mIdelete:
-                            new AlertDialog.Builder(getContext())
+                            new AlertDialog.Builder(activity)
                                     .setTitle(date)
                                     .setMessage("Delete "+num+" Logs permanently")
                                     .setPositiveButton("confirm", new DialogInterface.OnClickListener() {
@@ -276,7 +298,7 @@ public class LogFragment extends Fragment {
     }
 
     private void showWatchPicker(final List<BaseLog> logs) {
-        final SQLiteDatabase db = new DatabaseHelper(getContext()).getReadableDatabase();
+        final SQLiteDatabase db = new DatabaseHelper(activity).getReadableDatabase();
         final List<Watch> watches = new ArrayList<>();
         Cursor c = db.rawQuery("select pk, piece_pk, start, end, date from "+DatabaseHelper.watchTable, null);
         for(int i=0; i<c.getCount(); i++) {
@@ -293,6 +315,7 @@ public class LogFragment extends Fragment {
             watches.add(new Watch(pk, new Piece(piecePk, title), start, end, date));
         }
         c.close();
+        db.close();
         String[] items = new String[watches.size()+1];
         items[0] = "Create New Watch";
         for(int i=1; i<watches.size()+1; i++) {
@@ -302,7 +325,7 @@ public class LogFragment extends Fragment {
             int end = watch.getEnd();
             items[i] = String.format("%s [%d-%d]", title, start, end);
         }
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(activity)
                 .setTitle("Choose a Watch")
                 .setItems(items, new DialogInterface.OnClickListener() {
                     @Override
@@ -330,7 +353,7 @@ public class LogFragment extends Fragment {
     }
 
     private void showPiecePicker(final List<BaseLog> logs) {
-        final SQLiteDatabase db = new DatabaseHelper(getContext()).getReadableDatabase();
+        final SQLiteDatabase db = new DatabaseHelper(activity).getReadableDatabase();
         final List<Piece> pieces = new ArrayList<>();
         Cursor c = db.rawQuery("select pk, title from "+DatabaseHelper.pieceTable, null);
         for(int i=0; i<c.getCount(); i++) {
@@ -340,12 +363,13 @@ public class LogFragment extends Fragment {
             pieces.add(new Piece(pk, title));
         }
         c.close();
+        db.close();
         String[] items = new String[pieces.size()+1];
         items[0] = "Register New Piece";
         for(int i=1; i<pieces.size()+1; i++) {
             items[i] = pieces.get(i-1).getTitle();
         }
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(activity)
                 .setTitle("Choose a piece")
                 .setItems(items, new DialogInterface.OnClickListener() {
                     @Override
@@ -360,10 +384,10 @@ public class LogFragment extends Fragment {
     }
 
     private void showRegisterPieceDialog(final List<BaseLog> logs) {
-        final LinearLayout layout = (LinearLayout)(((LayoutInflater)getContext().getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_register_piece, null));
+        final LinearLayout layout = (LinearLayout)(((LayoutInflater)activity.getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_register_piece, null));
         final EditText eTtitle = layout.findViewById(R.id.eTtitle);
         final EditText eTcomment = layout.findViewById(R.id.eTcomment);
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(activity)
                 .setTitle("Register New Piece")
                 .setView(layout)
                 .setPositiveButton("register", new DialogInterface.OnClickListener() {
@@ -371,13 +395,13 @@ public class LogFragment extends Fragment {
                     public void onClick(DialogInterface dialogInterface, int i) {
                         String title = eTtitle.getText().toString();
                         if(title.isEmpty()) {
-                            Toast.makeText(getContext(), "Title of piece can not be blank", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(activity, "Title of piece can not be blank", Toast.LENGTH_SHORT).show();
                             return;
                         }
                         String comment = eTcomment.getText().toString();
 
                         if(registerTask!=null) {
-                            Toast.makeText(getContext(), R.string.error_try_later, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(activity, R.string.error_try_later, Toast.LENGTH_SHORT).show();
                             return;
                         }
                         registerTask = new PieceRegisterTask(new Piece(title, comment), logs);
@@ -389,12 +413,30 @@ public class LogFragment extends Fragment {
     }
 
     private void showRangePicker(final Piece piece, final List<BaseLog> logs) {
-        final LinearLayout layout = (LinearLayout)(((LayoutInflater)getContext().getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_range_picker, null));
+        final LinearLayout layout = (LinearLayout)(((LayoutInflater)activity.getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_range_picker, null));
         final NumberPicker nPstart = layout.findViewById(R.id.nPstart);
-        nPstart.setMinValue(1);
         final NumberPicker nPend = layout.findViewById(R.id.nPend);
-        nPend.setMinValue(1);
-        new AlertDialog.Builder(getContext())
+        nPstart.setMinValue(0);
+        nPstart.setMaxValue(1000);
+        nPstart.setWrapSelectorWheel(false);
+        nPstart.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker numberPicker, int i, int i1) {
+                if(nPend.getValue()<i1)
+                    nPend.setValue(i1);
+            }
+        });
+        nPend.setMinValue(0);
+        nPend.setMaxValue(1000);
+        nPend.setWrapSelectorWheel(false);
+        nPend.setOnValueChangedListener(new NumberPicker.OnValueChangeListener() {
+            @Override
+            public void onValueChange(NumberPicker numberPicker, int i, int i1) {
+                if(nPstart.getValue()>i1)
+                    nPstart.setValue(i1);
+            }
+        });
+        new AlertDialog.Builder(activity)
                 .setTitle("Pick Range")
                 .setView(layout)
                 .setPositiveButton("link", new DialogInterface.OnClickListener() {
@@ -434,7 +476,7 @@ public class LogFragment extends Fragment {
         try {
             startActivityForResult(Intent.createChooser(intent, "Select a File to Upload"), REQUEST_IMAGE_SELECT);
         } catch(android.content.ActivityNotFoundException ex) {
-            Toast.makeText(getContext(), "Please install a File Manager", Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "Please install a File Manager", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -463,9 +505,9 @@ public class LogFragment extends Fragment {
         @Override
         protected String doInBackground(Void... voids) {
             if(date==null)
-                return NetworkManager.get(getContext(), NetworkManager.SECRET_DOMAIN+"log/list/");
+                return NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/list/");
             else
-                return NetworkManager.get(getContext(), NetworkManager.SECRET_DOMAIN+"log/list/"+date+"/");
+                return NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/list/"+date+"/");
         }
 
         @Override
@@ -474,16 +516,16 @@ public class LogFragment extends Fragment {
             activity.updateProgress();
 
             if(result==null) {
-                Toast.makeText(getContext(), R.string.error_network, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_network, Toast.LENGTH_SHORT).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
 
-            List<BaseLog> logs = Parser.getLogListJSON(result);
+            List<BaseLog> logs = Parser.getLogsJSON(result);
             adapter.setItems(logs);
             if(today)
                 lVlogs.setSelection(adapter.getCount()-1);
@@ -528,11 +570,11 @@ public class LogFragment extends Fragment {
                 TextLog textLog = (TextLog) log;
                 data.put("text", textLog.getText());
                 if(log.getPk()==0)
-                    publishProgress(NetworkManager.post(getContext(), NetworkManager.SECRET_DOMAIN+"log/new/text/", data));
+                    publishProgress(NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"log/new/text/", data));
                 else
-                    publishProgress(NetworkManager.post(getContext(), NetworkManager.SECRET_DOMAIN+"log/edit/text/"+log.getPk()+"/", data));
+                    publishProgress(NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"log/edit/text/"+log.getPk()+"/", data));
             } else {
-                publishProgress(String.valueOf(NetworkManager.upload(getContext(), NetworkManager.SECRET_DOMAIN+"log/new/image/", "image", uri)));
+                publishProgress(String.valueOf(NetworkManager.upload(activity, NetworkManager.SECRET_DOMAIN+"log/new/image/", "image", uri)));
             }
 
             if(watch!=null) {
@@ -541,10 +583,6 @@ public class LogFragment extends Fragment {
                         List<BaseLog> logs = new ArrayList<>();
                         logs.add(log);
                         return new WatchLinkTask(watch, logs).doInBackground();
-                    } else {
-                        try {
-                            Thread.sleep(50);
-                        } catch(Exception e) {}
                     }
                 }
             }
@@ -558,12 +596,12 @@ public class LogFragment extends Fragment {
 
             if(result==null) {
                 cancel(true);
-                Toast.makeText(getContext(), R.string.error_network, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_network, Toast.LENGTH_SHORT).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
                 cancel(true);
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
@@ -573,8 +611,9 @@ public class LogFragment extends Fragment {
                 adapter.add(log);
                 adapter.notifyDataSetChanged();
                 lVlogs.setSelection(adapter.getCount()-1);
+                saveLogText(true);
             } else {
-                Toast.makeText(getContext(), R.string.error_unknown, Toast.LENGTH_LONG).show();
+                Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_LONG).show();
                 eTlogText.setText((String)eTlogText.getTag());
             }
         }
@@ -587,11 +626,11 @@ public class LogFragment extends Fragment {
             if(watch==null)
                 return;
             if(result==null) {
-                Toast.makeText(getContext(), R.string.error_network, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_network, Toast.LENGTH_SHORT).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
@@ -600,7 +639,7 @@ public class LogFragment extends Fragment {
             watch = Parser.getWatchJSON(result);
             if(watch!=null) {
                 if(isNew) {
-                    SQLiteDatabase db = new DatabaseHelper(getContext()).getWritableDatabase();
+                    SQLiteDatabase db = new DatabaseHelper(activity).getWritableDatabase();
                     ContentValues values = new ContentValues();
                     values.put("pk", watch.getPk());
                     values.put("piece_pk", watch.getPiece().getPk());
@@ -608,9 +647,11 @@ public class LogFragment extends Fragment {
                     values.put("end", watch.getEnd());
                     values.put("date", watch.getDate());
                     db.insert(DatabaseHelper.watchTable, null, values);
+                    db.close();
                 }
+                adapter.notifyDataSetChanged();
             } else {
-                Toast.makeText(getContext(), R.string.error_unknown, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -638,7 +679,7 @@ public class LogFragment extends Fragment {
         @Override
         protected Void doInBackground(Void... voids) {
             for(BaseLog log: logs) {
-                publishProgress(NetworkManager.get(getContext(), NetworkManager.SECRET_DOMAIN+"log/delete/"+log.getPk()+"/"));
+                publishProgress(NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/delete/"+log.getPk()+"/"));
             }
 
             return null;
@@ -649,12 +690,12 @@ public class LogFragment extends Fragment {
             String result = values[0];
             if(result==null) {
                 cancel(true);
-                Toast.makeText(getContext(), R.string.error_network, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_network, Toast.LENGTH_SHORT).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
                 cancel(true);
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
@@ -673,7 +714,7 @@ public class LogFragment extends Fragment {
             activity.updateProgress();
 
             Toast.makeText(activity, success+" Logs deleted."+(logs.size()>success?"\n"+(logs.size()-success)+"Logs not deleted.":""), Toast.LENGTH_SHORT).show();
-            if(isEmpty() || !today) {
+            if(isEmpty() && !today) {
                 activity.requestPurge(LogFragment.this);
             }
         }
@@ -704,7 +745,7 @@ public class LogFragment extends Fragment {
             Map<String, String> data = new LinkedHashMap<>();
             data.put("title", piece.getTitle());
             data.put("comment", piece.getComment());
-            return NetworkManager.post(getContext(), NetworkManager.SECRET_DOMAIN+"piece/new/", data);
+            return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"piece/new/", data);
         }
 
         @Override
@@ -713,26 +754,27 @@ public class LogFragment extends Fragment {
             activity.updateProgress();
 
             if(result==null) {
-                Toast.makeText(getContext(), getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                Toast.makeText(activity, getString(R.string.error_network), Toast.LENGTH_LONG).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
 
             piece = Parser.getPieceJSON(result);
             if(piece!=null) {
-                SQLiteDatabase db = new DatabaseHelper(getContext()).getWritableDatabase();
+                SQLiteDatabase db = new DatabaseHelper(activity).getWritableDatabase();
                 ContentValues values = new ContentValues();
                 values.put("pk", piece.getPk());
                 values.put("title", piece.getTitle());
                 db.insert(DatabaseHelper.pieceTable, null, values);
+                db.close();
 
                 showRangePicker(piece, logs);
             } else {
-                Toast.makeText(getContext(), R.string.error_unknown, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -769,9 +811,9 @@ public class LogFragment extends Fragment {
                 data.put("piece", String.valueOf(watch.getPiece().getPk()));
                 data.put("start", String.valueOf(watch.getStart()));
                 data.put("end", String.valueOf(watch.getEnd()));
-                return NetworkManager.post(getContext(), NetworkManager.SECRET_DOMAIN+"watch/new/", data);
+                return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"watch/new/", data);
             } else {
-                return NetworkManager.post(getContext(), NetworkManager.SECRET_DOMAIN+"watch/add/logs/"+watch.getPk()+"/", data);
+                return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"watch/add/logs/"+watch.getPk()+"/", data);
             }
         }
 
@@ -781,11 +823,11 @@ public class LogFragment extends Fragment {
             activity.updateProgress();
 
             if(result==null) {
-                Toast.makeText(getContext(), getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                Toast.makeText(activity, getString(R.string.error_network), Toast.LENGTH_LONG).show();
                 return;
             }
             if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
@@ -794,7 +836,7 @@ public class LogFragment extends Fragment {
             watch = Parser.getWatchJSON(result);
             if(watch!=null) {
                 if(isNew) {
-                    SQLiteDatabase db = new DatabaseHelper(getContext()).getWritableDatabase();
+                    SQLiteDatabase db = new DatabaseHelper(activity).getWritableDatabase();
                     ContentValues values = new ContentValues();
                     values.put("pk", watch.getPk());
                     values.put("piece_pk", watch.getPiece().getPk());
@@ -802,11 +844,12 @@ public class LogFragment extends Fragment {
                     values.put("end", watch.getEnd());
                     values.put("date", watch.getDate());
                     db.insert(DatabaseHelper.watchTable, null, values);
+                    db.close();
                 }
 
                 Toast.makeText(activity, logs.size()+" Logs linked to this Watch", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(getContext(), R.string.error_unknown, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -836,7 +879,7 @@ public class LogFragment extends Fragment {
             if(!imageDir.exists())
                 if(!imageDir.mkdirs())
                     return -1;
-            return NetworkManager.download(getContext(), NetworkManager.SECRET_DOMAIN+"/log/download/image/"+log.getPk()+"/", imageFile);
+            return NetworkManager.download(activity, NetworkManager.SECRET_DOMAIN+"/log/download/image/"+log.getPk()+"/", imageFile);
         }
 
         @Override
@@ -845,11 +888,11 @@ public class LogFragment extends Fragment {
             activity.updateProgress();
 
             if(result==null) {
-                Toast.makeText(getContext(), getString(R.string.error_network), Toast.LENGTH_LONG).show();
+                Toast.makeText(activity, getString(R.string.error_network), Toast.LENGTH_LONG).show();
                 return;
             }
             if(result==NetworkManager.RESULT_CODE_LOGIN_FAILED) {
-                Toast.makeText(getContext(), R.string.error_login, Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
                 activity.requestLogin();
                 return;
             }
@@ -880,39 +923,44 @@ public class LogFragment extends Fragment {
         @Override
         public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
             View v = convertView;
-            LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(LAYOUT_INFLATER_SERVICE);
+
+            LayoutInflater inflater = (LayoutInflater) activity.getSystemService(LAYOUT_INFLATER_SERVICE);
 
             BaseLog log = items.get(position);
+
+            if(v==null)
+                v = inflater.inflate(R.layout.item_log, null);
+
             if(log!=null) {
+                TextView tVdatetime = v.findViewById(R.id.tVdatetime);
+                if(date==null)
+                    tVdatetime.setText(log.getCreatedAt());
+                else
+                    tVdatetime.setText(Parser.getSimpleTime(log.getCreatedAt()));
+                TextView tVwatch = v.findViewById(R.id.tVwatch);
+                String watchString = DatabaseHelper.getWatchString(activity, log);
+                tVwatch.setText(watchString);
+                TextView tVtext = v.findViewById(R.id.tVtext);
+                ImageView iVimage = v.findViewById(R.id.iVimage);
+                tVtext.setVisibility(log instanceof TextLog ? View.VISIBLE : View.GONE);
+                iVimage.setVisibility(log instanceof ImageLog ? View.VISIBLE : View.GONE);
                 if(log instanceof TextLog) {
                     TextLog textLog = (TextLog) log;
-                    if(v==null || !(v.getTag() instanceof TextLog)) {
-                        v = inflater.inflate(R.layout.item_log_text, null);
-                        TextView tVtext = v.findViewById(R.id.tVtext);
-                        if(tVtext!=null)
-                            tVtext.setText(textLog.getText());
-                    }
-                } else {
+                    tVtext.setText(textLog.getText());
+                } else if(log instanceof ImageLog) {
                     ImageLog imageLog = (ImageLog) log;
-                    if(v==null || !(v.getTag() instanceof ImageLog)) {
-                        v = inflater.inflate(R.layout.item_log_image, null);
-                        ImageView iVimage = v.findViewById(R.id.iVimage);
-                        File imageFile = new File(imageLog.getAbsolutePath());
-                        if(imageFile.exists()) {
-                            iVimage.setImageURI(Uri.fromFile(imageFile));
-                        } else {
-                            ImageDownloadTask downloadTask = new ImageDownloadTask(imageLog);
-                            downloadTask.execute((Void) null);
-                            downloadTasks.add(downloadTask);
-                        }
+                    File imageFile = new File(imageLog.getAbsolutePath());
+                    if(imageFile.exists()) {
+                        // TODO: do not load image source every time
+                        iVimage.setAdjustViewBounds(true);
+                        iVimage.setImageURI(Uri.fromFile(imageFile));
+                        // TODO: set image width and height
+                    } else {
+                        iVimage.setAdjustViewBounds(false);
+                        ImageDownloadTask downloadTask = new ImageDownloadTask(imageLog);
+                        downloadTask.execute((Void) null);
+                        downloadTasks.add(downloadTask);
                     }
-                }
-                TextView tVdatetime = v.findViewById(R.id.tVdatetime);
-                if(tVdatetime!=null) {
-                    if(date==null)
-                        tVdatetime.setText(log.getCreatedAt());
-                    else
-                        tVdatetime.setText(Parser.getSimpleTime(log.getCreatedAt()));
                 }
             }
 
