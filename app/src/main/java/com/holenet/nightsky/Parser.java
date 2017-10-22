@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class Parser {
     public static String getMetaDataHTML(String res, String name) {
@@ -316,10 +317,15 @@ public class Parser {
     private static Watch getWatchJSON(JSONObject joWatch) throws Exception {
         int pk = joWatch.getInt("pk");
         int piecePk = joWatch.getInt("piece_pk");
-        int start = joWatch.getInt("start");
-        int end = joWatch.getInt("end");
         String date = joWatch.getString("date");
-        return new Watch(pk, new Piece(piecePk), start, end, date);
+        if(joWatch.has("etc")) {
+            String etc = joWatch.getString("etc");
+            return new Watch(pk, new Piece(piecePk), etc, date);
+        } else {
+            int start = joWatch.getInt("start");
+            int end = joWatch.getInt("end");
+            return new Watch(pk, new Piece(piecePk), start, end, date);
+        }
     }
 
     private static String getCleanDatetime(String res) {
@@ -328,6 +334,15 @@ public class Parser {
 
     public static String getDate(String datetime) {
         return datetime.split(" ")[0];
+    }
+
+    public static String getSimpleDate(String datetime) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd [EE]", Locale.US).format(new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(datetime.split(" ")[0]));
+        } catch(Exception e) {
+            e.printStackTrace();
+            return getDate(datetime);
+        }
     }
 
     public static String getTime(String datetime) {
@@ -343,6 +358,6 @@ public class Parser {
     }
 
     public static String getTodayDate() {
-        return new SimpleDateFormat("yyyy-MM-dd").format(Calendar.getInstance().getTime());
+        return new SimpleDateFormat("yyyy-MM-dd [EE]", Locale.US).format(Calendar.getInstance().getTime());
     }
 }

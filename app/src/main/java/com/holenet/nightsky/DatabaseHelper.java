@@ -5,13 +5,15 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import com.holenet.nightsky.item.BaseLog;
+import com.holenet.nightsky.item.Piece;
 import com.holenet.nightsky.item.Watch;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-    public final static int databaseVersion = 6;
+    public final static int databaseVersion = 7;
 
     public final static String musicListTable = "music_list";
     public final static String musicTable = "music";
@@ -76,6 +78,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + " piece_pk int, "
                 + " start int, "
                 + " end int, "
+                + " etc text, "
                 + " date text)";
         try {
             db.execSQL(CREATE_SQL);
@@ -104,22 +107,51 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return false;
     }
 
-    public static String getWatchString(Context context, BaseLog log) {
-        Watch watch = log.getWatch();
+    public static boolean updateWatch(Context context, Watch watch) {
         if(watch==null)
-            return "";
+            return false;
         SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
-        Cursor c = db.rawQuery("select piece_pk, start, end from "+DatabaseHelper.watchTable+" where pk = "+watch.getPk(), null);
+        Cursor c = db.rawQuery("select piece_pk, start, end, etc from "+DatabaseHelper.watchTable+" where pk = "+watch.getPk(), null);
         c.moveToNext();
         int piecePk = c.getInt(0);
-        int start = c.getInt(1);
-        int end = c.getInt(2);
+        watch.setStart(c.getInt(1));
+        watch.setEnd(c.getInt(2));
+        watch.setEtc(c.getString(3));
         Cursor cc = db.rawQuery("select title from "+DatabaseHelper.pieceTable+" where pk = "+piecePk, null);
         cc.moveToNext();
-        String title = cc.getString(0);
+        watch.setPiece(new Piece(piecePk, cc.getString(0)));
         cc.close();
         c.close();
 
-        return title+" ["+(start==end ? start : start+"-"+end)+"]";
+        return true;
+    }
+
+    public static List<Watch> getWatchList(Context context) {
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        List<Watch> watches = new ArrayList<>();
+        Cursor c = db.rawQuery("select pk from "+DatabaseHelper.watchTable, null);
+        for(int i=0; i<c.getCount(); i++) {
+            c.moveToNext();
+            int pk = c.getInt(0);
+            watches.add(new Watch(pk));
+        }
+        c.close();
+        db.close();
+        return watches;
+    }
+
+    public static List<Piece> getPieceList(Context context) {
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        final List<Piece> pieces = new ArrayList<>();
+        Cursor c = db.rawQuery("select pk, title from "+DatabaseHelper.pieceTable, null);
+        for(int i=0; i<c.getCount(); i++) {
+            c.moveToNext();
+            int pk = c.getInt(0);
+            String title = c.getString(1);
+            pieces.add(new Piece(pk, title));
+        }
+        c.close();
+        db.close();
+        return pieces;
     }
 }

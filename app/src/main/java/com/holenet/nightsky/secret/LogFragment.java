@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -24,6 +23,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -74,6 +74,8 @@ public class LogFragment extends Fragment {
         return fragment;
     }
 
+    boolean isFullScrolled;
+    View footer;
     ListView lVlogs;
     LogAdapter adapter;
     ImageButton iBimage, iBlink;
@@ -111,14 +113,26 @@ public class LogFragment extends Fragment {
         }
         adapter = new LogAdapter(getContext(), R.layout.item_log, logs);
         lVlogs.setAdapter(adapter);
+        footer = new View(activity);
+        lVlogs.addFooterView(footer);
+        lVlogs.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(AbsListView absListView, int i) {
+                checkFullScroll();
+//                Log.e("onScrollStateChanged", i+"/"+isFullScrolled);
+            }
+            @Override
+            public void onScroll(AbsListView absListView, final int firstVisibleItem, final int visibleItemCount, final int totalItemCount) {
+            }
+        });
         lVlogs.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 if(!multiMode) {
                     // TODO: implement full screen mode (with move and pinch) for image
-                    String watchString = DatabaseHelper.getWatchString(getContext(), adapter.getItem(i));
-                    if(!watchString.isEmpty())
-                        Toast.makeText(activity, watchString, Toast.LENGTH_SHORT).show();
+//                    String watchString = DatabaseHelper.getWatchString(getContext(), adapter.getItem(i));
+//                    if(!watchString.isEmpty())
+//                        Toast.makeText(activity, watchString, Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -152,7 +166,16 @@ public class LogFragment extends Fragment {
             tVrange = v.findViewById(R.id.tVrange);
             eTlogText = v.findViewById(R.id.eTlogText);
             eTlogText.setText(activity.getSharedPreferences("log_settings", 0).getString("temp_log_text", ""));
+            eTlogText.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if(isFullScrolled) {
+                        adapter.fullScroll(100, 200);
+                    }
+                }
+            });
             eTlogText.addTextChangedListener(new TextWatcher() {
+                int lastLineCount = eTlogText.getLineCount();
                 @Override
                 public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 }
@@ -162,6 +185,13 @@ public class LogFragment extends Fragment {
                 @Override
                 public void afterTextChanged(Editable editable) {
                     saveLogText(false);
+                    int newLineCount = eTlogText.getLineCount();
+                    if(lastLineCount!=newLineCount) {
+                        if(isFullScrolled) {
+                            adapter.fullScroll(50, 50);
+                        }
+                        lastLineCount = newLineCount;
+                    }
                 }
             });
             eTlogText.requestFocus();
@@ -203,6 +233,10 @@ public class LogFragment extends Fragment {
             editor.putString("temp_log_text", empty ? "" : eTlogText.getText().toString());
             editor.apply();
         }
+    }
+
+    private boolean checkFullScroll() {
+        return isFullScrolled = lVlogs.getChildCount()>0 && lVlogs.getChildAt(lVlogs.getChildCount()-1)==footer;
     }
 
     public void refresh() {
@@ -298,32 +332,16 @@ public class LogFragment extends Fragment {
     }
 
     private void showWatchPicker(final List<BaseLog> logs) {
-        final SQLiteDatabase db = new DatabaseHelper(activity).getReadableDatabase();
-        final List<Watch> watches = new ArrayList<>();
-        Cursor c = db.rawQuery("select pk, piece_pk, start, end, date from "+DatabaseHelper.watchTable, null);
-        for(int i=0; i<c.getCount(); i++) {
-            c.moveToNext();
-            int pk = c.getInt(0);
-            int piecePk = c.getInt(1);
-            int start = c.getInt(2);
-            int end = c.getInt(3);
-            String date = c.getString(4);
-            Cursor cc = db.rawQuery("select title from "+DatabaseHelper.pieceTable+" where pk = "+piecePk, null);
-            cc.moveToNext();
-            String title = cc.getString(0);
-            cc.close();
-            watches.add(new Watch(pk, new Piece(piecePk, title), start, end, date));
+        final List<Watch> watches = DatabaseHelper.getWatchList(activity);
+        for(Watch watch: watches) {
+            DatabaseHelper.updateWatch(activity, watch);
         }
-        c.close();
-        db.close();
-        String[] items = new String[watches.size()+1];
+        final String[] items = new String[watches.size()+2];
         items[0] = "Create New Watch";
+        items[items.length-1] = "Don't Link Any Watch";
         for(int i=1; i<watches.size()+1; i++) {
             Watch watch = watches.get(i-1);
-            String title = watch.getPiece().getTitle();
-            int start = watch.getStart();
-            int end = watch.getEnd();
-            items[i] = String.format("%s [%d-%d]", title, start, end);
+            items[i] = watch.toString();
         }
         new AlertDialog.Builder(activity)
                 .setTitle("Choose a Watch")
@@ -332,11 +350,24 @@ public class LogFragment extends Fragment {
                     public void onClick(DialogInterface dialogInterface, int i) {
                         if(i==0) {
                             showPiecePicker(logs);
+                        } else if(i==items.length-1) {
+                            if(logs==null) {
+                                tVtitle.setText("");
+                                tVrange.setText("");
+                                bTlogSave.setTag(null);
+                            } else {
+                                if(linkTask!=null) {
+                                    Toast.makeText(activity, R.string.error_try_later, Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                linkTask = new WatchLinkTask(null, logs);
+                                linkTask.execute((Void) null);
+                            }
                         } else {
                             Watch watch = watches.get(i-1);
                             if(logs==null) {
                                 tVtitle.setText(watch.getPiece().getTitle());
-                                tVrange.setText(watch.getStart()+"-"+watch.getEnd());
+                                tVrange.setText(watch.getRange());
                                 bTlogSave.setTag(watch);
                             } else {
                                 if(linkTask!=null) {
@@ -353,17 +384,7 @@ public class LogFragment extends Fragment {
     }
 
     private void showPiecePicker(final List<BaseLog> logs) {
-        final SQLiteDatabase db = new DatabaseHelper(activity).getReadableDatabase();
-        final List<Piece> pieces = new ArrayList<>();
-        Cursor c = db.rawQuery("select pk, title from "+DatabaseHelper.pieceTable, null);
-        for(int i=0; i<c.getCount(); i++) {
-            c.moveToNext();
-            int pk = c.getInt(0);
-            String title = c.getString(1);
-            pieces.add(new Piece(pk, title));
-        }
-        c.close();
-        db.close();
+        final List<Piece> pieces = DatabaseHelper.getPieceList(activity);
         String[] items = new String[pieces.size()+1];
         items[0] = "Register New Piece";
         for(int i=1; i<pieces.size()+1; i++) {
@@ -443,7 +464,7 @@ public class LogFragment extends Fragment {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         int start = nPstart.getValue();
-                        int end = nPstart.getValue();
+                        int end = nPend.getValue();
                         if(start>end) {
                             Toast.makeText(activity, "End should not be larger than Start", Toast.LENGTH_SHORT).show();
                             return;
@@ -507,7 +528,7 @@ public class LogFragment extends Fragment {
             if(date==null)
                 return NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/list/");
             else
-                return NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/list/"+date+"/");
+                return NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/list/"+date.split(" ")[0]+"/");
         }
 
         @Override
@@ -527,9 +548,10 @@ public class LogFragment extends Fragment {
 
             List<BaseLog> logs = Parser.getLogsJSON(result);
             adapter.setItems(logs);
-            if(today)
-                lVlogs.setSelection(adapter.getCount()-1);
             adapter.notifyDataSetChanged();
+            if(today) {
+                adapter.fullScroll(500, 150);
+            }
         }
 
         @Override
@@ -548,7 +570,7 @@ public class LogFragment extends Fragment {
             this.log = log;
         }
 
-        public LogSaveTask(Uri uri) {
+        LogSaveTask(Uri uri) {
             this.uri = uri;
         }
 
@@ -569,22 +591,25 @@ public class LogFragment extends Fragment {
             if(log!=null && log instanceof TextLog) {
                 TextLog textLog = (TextLog) log;
                 data.put("text", textLog.getText());
-                if(log.getPk()==0)
-                    publishProgress(NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"log/new/text/", data));
-                else
+                if(log.getPk()==0) {
+                    String result = NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"log/new/text/", data);
+                    publishProgress(result);
+                    if(result!=null && !result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+                        BaseLog log = Parser.getLogJSON(result);
+                        List<BaseLog> logs = new ArrayList<>();
+                        logs.add(log);
+                        return new WatchLinkTask(watch, logs).doInBackground();
+                    }
+                } else
                     publishProgress(NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"log/edit/text/"+log.getPk()+"/", data));
             } else {
                 publishProgress(String.valueOf(NetworkManager.upload(activity, NetworkManager.SECRET_DOMAIN+"log/new/image/", "image", uri)));
             }
 
             if(watch!=null) {
-                for(int i=0; i<100; i++) {
-                    if(log.getPk()!=0) {
-                        List<BaseLog> logs = new ArrayList<>();
-                        logs.add(log);
-                        return new WatchLinkTask(watch, logs).doInBackground();
-                    }
-                }
+                List<BaseLog> logs = new ArrayList<>();
+                logs.add(log);
+                return new WatchLinkTask(watch, logs).doInBackground();
             }
 
             return null;
@@ -593,6 +618,7 @@ public class LogFragment extends Fragment {
         @Override
         protected void onProgressUpdate(String... values) {
             String result = values[0];
+            Log.e("onProgressUpdate", result+"");
 
             if(result==null) {
                 cancel(true);
@@ -606,11 +632,14 @@ public class LogFragment extends Fragment {
                 return;
             }
 
-            log = Parser.getLogJSON(result);
+            BaseLog log = Parser.getLogJSON(result);
             if(log!=null) {
-                adapter.add(log);
+                if(adapter.findByPk(log.getPk())==null) {
+                    this.log = log;
+                    adapter.add(log);
+                }
                 adapter.notifyDataSetChanged();
-                lVlogs.setSelection(adapter.getCount()-1);
+                adapter.fullScroll(500, 150);
                 saveLogText(true);
             } else {
                 Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_LONG).show();
@@ -645,10 +674,12 @@ public class LogFragment extends Fragment {
                     values.put("piece_pk", watch.getPiece().getPk());
                     values.put("start", watch.getStart());
                     values.put("end", watch.getEnd());
+                    values.put("etc", watch.getEtc());
                     values.put("date", watch.getDate());
                     db.insert(DatabaseHelper.watchTable, null, values);
                     db.close();
                 }
+                log.setWatch(watch);
                 adapter.notifyDataSetChanged();
             } else {
                 Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_SHORT).show();
@@ -785,13 +816,15 @@ public class LogFragment extends Fragment {
         }
     }
 
-    private class WatchLinkTask extends AsyncTask<Void, Void, String> {
+    private class WatchLinkTask extends AsyncTask<Void, String, String> {
         Watch watch;
         List<BaseLog> logs;
+        int success;
 
         public WatchLinkTask(Watch watch, List<BaseLog> logs) {
             this.watch = watch;
             this.logs = logs;
+            this.success = 0;
         }
 
         @Override
@@ -801,6 +834,13 @@ public class LogFragment extends Fragment {
 
         @Override
         protected String doInBackground(Void... voids) {
+            if(watch==null) {
+                for(BaseLog log: logs) {
+                    publishProgress(NetworkManager.get(activity, NetworkManager.SECRET_DOMAIN+"log/cut/watch/"+log.getPk()+"/"));
+                }
+                return null;
+            }
+
             Map<String, String> data = new LinkedHashMap<>();
             JSONArray ja = new JSONArray();
             for(BaseLog log: logs) {
@@ -809,11 +849,39 @@ public class LogFragment extends Fragment {
             data.put("logs", ja.toString());
             if(watch.getPk()==0) {
                 data.put("piece", String.valueOf(watch.getPiece().getPk()));
-                data.put("start", String.valueOf(watch.getStart()));
-                data.put("end", String.valueOf(watch.getEnd()));
+                if(watch.getEtc()!=null) {
+                    data.put("etc", watch.getEtc());
+                } else {
+                    data.put("start", String.valueOf(watch.getStart()));
+                    data.put("end", String.valueOf(watch.getEnd()));
+                }
                 return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"watch/new/", data);
             } else {
                 return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"watch/add/logs/"+watch.getPk()+"/", data);
+            }
+        }
+
+        @Override
+        protected void onProgressUpdate(String... values) {
+            String result = values[0];
+
+            if(result==null) {
+                Toast.makeText(activity, R.string.error_network, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if(result.equals(NetworkManager.RESULT_STRING_LOGIN_FAILED)) {
+                Toast.makeText(activity, R.string.error_login, Toast.LENGTH_SHORT).show();
+                activity.requestLogin();
+                return;
+            }
+
+            BaseLog log = Parser.getLogJSON(result);
+            if(log!=null) {
+                success++;
+                adapter.replace(log);
+                adapter.notifyDataSetChanged();
+            } else {
+                Toast.makeText(activity, R.string.error_unknown, Toast.LENGTH_LONG).show();
             }
         }
 
@@ -822,6 +890,9 @@ public class LogFragment extends Fragment {
             linkTask = null;
             activity.updateProgress();
 
+            if(watch==null) {
+                Toast.makeText(activity, success+"/"+logs.size()+" Success", Toast.LENGTH_SHORT).show();
+            }
             if(result==null) {
                 Toast.makeText(activity, getString(R.string.error_network), Toast.LENGTH_LONG).show();
                 return;
@@ -842,10 +913,16 @@ public class LogFragment extends Fragment {
                     values.put("piece_pk", watch.getPiece().getPk());
                     values.put("start", watch.getStart());
                     values.put("end", watch.getEnd());
+                    values.put("etc", watch.getEtc());
                     values.put("date", watch.getDate());
                     db.insert(DatabaseHelper.watchTable, null, values);
                     db.close();
                 }
+                for(BaseLog log: logs) {
+                    log.setWatch(watch);
+                    adapter.replace(log);
+                }
+                adapter.notifyDataSetChanged();
 
                 Toast.makeText(activity, logs.size()+" Logs linked to this Watch", Toast.LENGTH_SHORT).show();
             } else {
@@ -938,8 +1015,11 @@ public class LogFragment extends Fragment {
                 else
                     tVdatetime.setText(Parser.getSimpleTime(log.getCreatedAt()));
                 TextView tVwatch = v.findViewById(R.id.tVwatch);
-                String watchString = DatabaseHelper.getWatchString(activity, log);
-                tVwatch.setText(watchString);
+                if(DatabaseHelper.updateWatch(activity, log.getWatch())) {
+                    tVwatch.setText(log.getWatch().toString());
+                } else {
+                    tVwatch.setText("");
+                }
                 TextView tVtext = v.findViewById(R.id.tVtext);
                 ImageView iVimage = v.findViewById(R.id.iVimage);
                 tVtext.setVisibility(log instanceof TextLog ? View.VISIBLE : View.GONE);
@@ -963,7 +1043,7 @@ public class LogFragment extends Fragment {
                     }
                 }
             }
-
+            v.setTag(log);
             return v;
         }
 
@@ -981,6 +1061,34 @@ public class LogFragment extends Fragment {
                     return;
                 }
             }
+        }
+
+        public boolean replace(BaseLog log) {
+            for(int i=0; i<items.size(); i++) {
+                if(items.get(i).getPk()==log.getPk()) {
+                    items.set(i, log);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public BaseLog findByPk(int pk) {
+            for(BaseLog log: items) {
+                if(log.getPk()==pk)
+                    return log;
+            }
+            return null;
+        }
+
+        public void fullScroll(final int duration, final int delay) {
+            lVlogs.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    lVlogs.smoothScrollBy(100000, duration);
+                    isFullScrolled = true;
+                }
+            }, delay);
         }
     }
 
