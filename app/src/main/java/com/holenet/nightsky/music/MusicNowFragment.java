@@ -49,7 +49,7 @@ public class MusicNowFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_music_list, container, false);
 
-        lVmusics = v.findViewById(R.id.lVmusics);
+        lVmusics = (ListView) v.findViewById(R.id.lVmusics);
         adapter = new MusicsAdapter(context, R.layout.item_music, new ArrayList<Music>());
         lVmusics.setAdapter(adapter);
         lVmusics.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -159,16 +159,16 @@ public class MusicNowFragment extends Fragment {
 
             Music music = items.get(position);
             if(music!=null) {
-                ImageView iVdevice = v.findViewById(R.id.iVdevice);
+                ImageView iVdevice = (ImageView) v.findViewById(R.id.iVdevice);
                 if(iVdevice!=null)
                     iVdevice.setImageResource(music.getDeviceId()<0 ? R.color.blank : R.color.device);
-                ImageView iVserver = v.findViewById(R.id.iVserver);
+                ImageView iVserver = (ImageView) v.findViewById(R.id.iVserver);
                 if(iVserver!=null)
                     iVserver.setImageResource(music.getServerId()<0 ? R.color.blank : R.color.server);
-                TextView tVtitle = v.findViewById(R.id.tVtitle);
+                TextView tVtitle = (TextView) v.findViewById(R.id.tVtitle);
                 if(tVtitle!=null)
                     tVtitle.setText(music.getTitle());
-                TextView tVartist= v.findViewById(R.id.tVartist);
+                TextView tVartist= (TextView) v.findViewById(R.id.tVartist);
                 if(tVartist!=null)
                     tVartist.setText(music.getArtist());
             }

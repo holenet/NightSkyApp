@@ -202,4 +202,9 @@
     <string name="error_unknown">Unknown error... try again...</string>
     <string name="error_try_later">Try later...</string>
     <string name="title_activity_piece">PieceActivity</string>
+
+    <string name="title_activity_fullscreen">FullscreenActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="title_activity_memo_edit">Memo</string>
 </resources>

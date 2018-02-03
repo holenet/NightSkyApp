@@ -49,7 +49,7 @@ public class FileFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_file, container, false);
 
-        lVfiles = v.findViewById(R.id.lVfiles);
+        lVfiles = (ListView) v.findViewById(R.id.lVfiles);
         lVfiles.setEmptyView(v.findViewById(R.id.tVempty));
         adapter = new FilesAdapter(context, R.layout.item_file, new ArrayList<FileItem>());
         lVfiles.setAdapter(adapter);
@@ -63,7 +63,7 @@ public class FileFragment extends Fragment {
                 downloadTask.execute((Void) null);
             }
         });
-        fABrefresh = v.findViewById(R.id.fABrefresh);
+        fABrefresh = (FloatingActionButton) v.findViewById(R.id.fABrefresh);
         fABrefresh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -217,7 +217,7 @@ public class FileFragment extends Fragment {
             }
 
                 Toast.makeText(context, "Downloaded.", Toast.LENGTH_SHORT).show();
-                // TODO: update device_in on the item
+                // TODO: update device_id on the item
         }
     }
 
@@ -239,7 +239,7 @@ public class FileFragment extends Fragment {
 
             FileItem file = items.get(position);
             if(file!=null) {
-                TextView tVname = v.findViewById(R.id.tVname);
+                TextView tVname = (TextView) v.findViewById(R.id.tVname);
                 if(tVname!=null)
                     tVname.setText(file.getName());
             }

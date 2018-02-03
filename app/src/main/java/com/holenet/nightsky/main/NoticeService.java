@@ -119,11 +119,7 @@ public class NoticeService extends Service {
                 String title = post.getTitle();
 
                 Notification.Builder notiBuilder;
-                if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    notiBuilder = new Notification.Builder(NoticeService.this, "Notice");
-                } else {
-                    notiBuilder = new Notification.Builder(NoticeService.this);
-                }
+                notiBuilder = new Notification.Builder(NoticeService.this);
                 notiBuilder.setTicker("Notice")
                         .setContentTitle("New Post")
                         .setContentText((title.length()>20 ? title.substring(0, 20)+"..." : title)+"/"+author)

@@ -57,15 +57,15 @@ public class PostReadFragment extends PostBaseFragment {
 
         View v = inflater.inflate(R.layout.fragment_post_read, container, false);
 
-        sVpost = v.findViewById(R.id.sVpost);
-        tVtitle = v.findViewById(R.id.tVtitle);
-        tVauthor = v.findViewById(R.id.tVauthor);
-        tVdate = v.findViewById(R.id.tVdate);
-        tVtime = v.findViewById(R.id.tVtime);
-        tVtext = v.findViewById(R.id.tVtext);
+        sVpost = (ScrollView) v.findViewById(R.id.sVpost);
+        tVtitle = (TextView) v.findViewById(R.id.tVtitle);
+        tVauthor = (TextView) v.findViewById(R.id.tVauthor);
+        tVdate = (TextView) v.findViewById(R.id.tVdate);
+        tVtime = (TextView) v.findViewById(R.id.tVtime);
+        tVtext = (TextView) v.findViewById(R.id.tVtext);
 
-        rLcomments = v.findViewById(R.id.rLcomments);
-        lVcomments = v.findViewById(R.id.lVcomments);
+        rLcomments = (RelativeLayout) v.findViewById(R.id.rLcomments);
+        lVcomments = (ListView) v.findViewById(R.id.lVcomments);
         adapter = new CommentsAdapter(context, R.layout.item_comment, new ArrayList<Comment>());
         lVcomments.setAdapter(adapter);
         lVcomments.setOnItemClickListener(new AdapterView.OnItemClickListener() {

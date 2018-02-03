@@ -51,7 +51,7 @@ public class MusicFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_music, container, false);
 
-        lVmusics = v.findViewById(R.id.lVmusics);
+        lVmusics = (ListView) v.findViewById(R.id.lVmusics);
         adapter = new MusicsAdapter(context, R.layout.item_music, new ArrayList<Music>());
         lVmusics.setAdapter(adapter);
         lVmusics.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -171,10 +171,10 @@ public class MusicFragment extends Fragment {
 
             Music music = items.get(position);
             if(music!=null) {
-                TextView tVtitle = v.findViewById(R.id.tVtitle);
+                TextView tVtitle = (TextView) v.findViewById(R.id.tVtitle);
                 if(tVtitle!=null)
                     tVtitle.setText(music.getTitle());
-                TextView tVartist= v.findViewById(R.id.tVartist);
+                TextView tVartist= (TextView) v.findViewById(R.id.tVartist);
                 if(tVartist!=null)
                     tVartist.setText(music.getArtist());
             }

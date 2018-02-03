@@ -36,8 +36,8 @@ public class PostEditFragment extends PostBaseFragment {
 
         View v = inflater.inflate(R.layout.fragment_post_edit, container, false);
 
-        eTtitle = v.findViewById(R.id.eTtitle);
-        eTtext = v.findViewById(R.id.eTtext);
+        eTtitle = (EditText) v.findViewById(R.id.eTtitle);
+        eTtext = (EditText) v.findViewById(R.id.eTtext);
 
         eTtitle.setText(post.getTitle());
         eTtext.setText(post.getText());

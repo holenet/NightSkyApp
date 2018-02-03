@@ -60,6 +60,17 @@
             android:label="@string/title_activity_piece"
             android:theme="@style/AppTheme.NoActionBar">
         </activity>
+        <activity
+            android:name=".memo.MemoEditActivity"
+            android:label="@string/title_activity_memo_edit"
+            android:theme="@style/AppTheme.NoActionBar">
+        </activity>
+
+        <service
+            android:name=".BackgroundUpdateService"
+            android:enabled="true"
+            android:exported="true">
+        </service>
     </application>
 
 </manifest>

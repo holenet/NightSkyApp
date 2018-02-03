@@ -6,6 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -107,7 +108,7 @@ public class LogFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_log, container, false);
 
-        lVlogs = v.findViewById(R.id.lVlogs);
+        lVlogs = (ListView) v.findViewById(R.id.lVlogs);
         if(logs==null) {
             logs = new ArrayList<>();
         }
@@ -129,7 +130,17 @@ public class LogFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 if(!multiMode) {
-                    // TODO: implement full screen mode (with move and pinch) for image
+                    BaseLog log = adapter.getItem(i);
+                    if(log instanceof ImageLog) {
+                        ImageLog imageLog = (ImageLog) log;
+                        if(imageLog.getDrawable()==null) {
+                            ImageLoadTask loadTask = new ImageLoadTask((ImageView)view.findViewById(R.id.iVimage), imageLog);
+                            loadTask.execute((Void) null);
+                        } else {
+                            activity.fullscreen(true, imageLog);
+                        }
+                    }
+
 //                    String watchString = DatabaseHelper.getWatchString(getContext(), adapter.getItem(i));
 //                    if(!watchString.isEmpty())
 //                        Toast.makeText(activity, watchString, Toast.LENGTH_SHORT).show();
@@ -139,7 +150,7 @@ public class LogFragment extends Fragment {
         lVlogs.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-                changeMode(true);
+                changeMultiMode(true);
                 lVlogs.setItemChecked(i, true);
                 return true;
             }
@@ -148,23 +159,23 @@ public class LogFragment extends Fragment {
         if(!today) {
             v.findViewById(R.id.cLnewLog).setVisibility(View.GONE);
         } else {
-            iBimage = v.findViewById(R.id.iBimage);
+            iBimage = (ImageButton) v.findViewById(R.id.iBimage);
             iBimage.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    requestSelectFile();
+                    requestSelectImage();
                 }
             });
-            iBlink = v.findViewById(R.id.iBlink);
+            iBlink = (ImageButton) v.findViewById(R.id.iBlink);
             iBlink.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     showWatchPicker(null);
                 }
             });
-            tVtitle = v.findViewById(R.id.tVtitle);
-            tVrange = v.findViewById(R.id.tVrange);
-            eTlogText = v.findViewById(R.id.eTlogText);
+            tVtitle = (TextView) v.findViewById(R.id.tVtitle);
+            tVrange = (TextView) v.findViewById(R.id.tVrange);
+            eTlogText = (EditText) v.findViewById(R.id.eTlogText);
             eTlogText.setText(activity.getSharedPreferences("log_settings", 0).getString("temp_log_text", ""));
             eTlogText.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -195,7 +206,7 @@ public class LogFragment extends Fragment {
                 }
             });
             eTlogText.requestFocus();
-            bTlogSave = v.findViewById(R.id.bTlogSave);
+            bTlogSave = (Button) v.findViewById(R.id.bTlogSave);
             bTlogSave.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -240,18 +251,18 @@ public class LogFragment extends Fragment {
     }
 
     public void refresh() {
-        if(loadTask!=null || deleteTask!=null)
+        if(loadTask!=null)
             return;
         loadTask = new LogLoadTask();
         loadTask.execute((Void) null);
     }
 
     boolean multiMode = false;
-    public void changeMode(boolean multiMode) {
+    public void changeMultiMode(boolean multiMode) {
         if(this.multiMode==multiMode)
             return;
         this.multiMode = multiMode;
-        if(this.multiMode) {
+        if(multiMode) {
             lVlogs.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
             lVlogs.setMultiChoiceModeListener(new ListView.MultiChoiceModeListener() {
                 private int num = 0;
@@ -325,9 +336,15 @@ public class LogFragment extends Fragment {
                 public void onDestroyActionMode(ActionMode actionMode) {
                     Log.e("ActionMode", "destroy");
                     multiChoiceAction = null;
+                    changeMultiMode(false);
                     num = 0;
                 }
             });
+        } else {
+            for(int i=0; i<adapter.getCount(); i++) {
+                lVlogs.setItemChecked(i, false);
+            }
+            lVlogs.setChoiceMode(ListView.CHOICE_MODE_NONE);
         }
     }
 
@@ -406,8 +423,8 @@ public class LogFragment extends Fragment {
 
     private void showRegisterPieceDialog(final List<BaseLog> logs) {
         final LinearLayout layout = (LinearLayout)(((LayoutInflater)activity.getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_register_piece, null));
-        final EditText eTtitle = layout.findViewById(R.id.eTtitle);
-        final EditText eTcomment = layout.findViewById(R.id.eTcomment);
+        final EditText eTtitle = (EditText) layout.findViewById(R.id.eTtitle);
+        final EditText eTcomment = (EditText) layout.findViewById(R.id.eTcomment);
         new AlertDialog.Builder(activity)
                 .setTitle("Register New Piece")
                 .setView(layout)
@@ -435,8 +452,9 @@ public class LogFragment extends Fragment {
 
     private void showRangePicker(final Piece piece, final List<BaseLog> logs) {
         final LinearLayout layout = (LinearLayout)(((LayoutInflater)activity.getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_range_picker, null));
-        final NumberPicker nPstart = layout.findViewById(R.id.nPstart);
-        final NumberPicker nPend = layout.findViewById(R.id.nPend);
+        final NumberPicker nPstart = (NumberPicker) layout.findViewById(R.id.nPstart);
+        final NumberPicker nPend = (NumberPicker) layout.findViewById(R.id.nPend);
+        final EditText eTetc = (EditText) layout.findViewById(R.id.eTetc);
         nPstart.setMinValue(0);
         nPstart.setMaxValue(1000);
         nPstart.setWrapSelectorWheel(false);
@@ -457,6 +475,24 @@ public class LogFragment extends Fragment {
                     nPstart.setValue(i1);
             }
         });
+        eTetc.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+            @Override
+            public void afterTextChanged(Editable s) {
+                if(s.length()>0) {
+                    nPstart.setEnabled(false);
+                    nPend.setEnabled(false);
+                } else {
+                    nPstart.setEnabled(true);
+                    nPend.setEnabled(true);
+                }
+            }
+        });
         new AlertDialog.Builder(activity)
                 .setTitle("Pick Range")
                 .setView(layout)
@@ -465,15 +501,22 @@ public class LogFragment extends Fragment {
                     public void onClick(DialogInterface dialogInterface, int i) {
                         int start = nPstart.getValue();
                         int end = nPend.getValue();
-                        if(start>end) {
-                            Toast.makeText(activity, "End should not be larger than Start", Toast.LENGTH_SHORT).show();
-                            return;
+                        String etc = eTetc.getText().toString();
+
+                        Watch watch;
+                        if(etc.isEmpty()) {
+                            if(start>end) {
+                                Toast.makeText(activity, "End should not be larger than Start", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            watch = new Watch(piece, start, end);
+                        } else {
+                            watch = new Watch(piece, etc);
                         }
 
-                        Watch watch = new Watch(piece, start, end);
                         if(logs==null) {
                             tVtitle.setText(piece.getTitle());
-                            tVrange.setText(start+"-"+end);
+                            tVrange.setText(watch.getRange());
                             bTlogSave.setTag(watch);
                         } else {
                             if(linkTask!=null) {
@@ -489,13 +532,13 @@ public class LogFragment extends Fragment {
                 .show();
     }
 
-    public void requestSelectFile() {
+    public void requestSelectImage() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("*/*");
+        intent.setType("image/*");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
 
         try {
-            startActivityForResult(Intent.createChooser(intent, "Select a File to Upload"), REQUEST_IMAGE_SELECT);
+            startActivityForResult(Intent.createChooser(intent, "Select a Image to Upload"), REQUEST_IMAGE_SELECT);
         } catch(android.content.ActivityNotFoundException ex) {
             Toast.makeText(activity, "Please install a File Manager", Toast.LENGTH_SHORT).show();
         }
@@ -951,7 +994,7 @@ public class LogFragment extends Fragment {
 
         @Override
         protected Integer doInBackground(Void... voids) {
-            File imageFile = new File(log.getAbsolutePath());
+            File imageFile = new File(log.getAbsolutePath(activity));
             File imageDir = imageFile.getParentFile();
             if(!imageDir.exists())
                 if(!imageDir.mkdirs())
@@ -988,6 +1031,44 @@ public class LogFragment extends Fragment {
         }
     }
 
+    private class ImageLoadTask extends AsyncTask<Void, Void, Drawable> {
+        ImageView iVimage;
+        ImageLog log;
+
+        public ImageLoadTask(ImageView iVimage, ImageLog log) {
+            this.iVimage = iVimage;
+            this.log = log;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            if(iVimage.getTag()==log) {
+                iVimage.setImageResource(R.drawable.ic_error_outline_black_24dp);
+                iVimage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                iVimage.setMaxHeight(iVimage.getWidth()/16*9);
+                // TODO: set image width and height
+            }
+        }
+
+        @Override
+        protected Drawable doInBackground(Void... params) {
+            Drawable drawable = Drawable.createFromPath(log.getAbsolutePath(activity));
+            log.setDrawable(drawable);
+            return drawable;
+        }
+
+        @Override
+        protected void onPostExecute(Drawable drawable) {
+            if(iVimage.getTag()==log) {
+                iVimage.setImageDrawable(drawable);
+                iVimage.setMaxHeight(100000000);
+                if(isFullScrolled) {
+                    adapter.fullScroll(100, 100);
+                }
+            }
+        }
+    }
+
     private class LogAdapter extends ArrayAdapter<BaseLog> {
         private List<BaseLog> items;
 
@@ -1009,19 +1090,19 @@ public class LogFragment extends Fragment {
                 v = inflater.inflate(R.layout.item_log, null);
 
             if(log!=null) {
-                TextView tVdatetime = v.findViewById(R.id.tVdatetime);
+                TextView tVdatetime = (TextView) v.findViewById(R.id.tVdatetime);
                 if(date==null)
                     tVdatetime.setText(log.getCreatedAt());
                 else
                     tVdatetime.setText(Parser.getSimpleTime(log.getCreatedAt()));
-                TextView tVwatch = v.findViewById(R.id.tVwatch);
+                TextView tVwatch = (TextView) v.findViewById(R.id.tVwatch);
                 if(DatabaseHelper.updateWatch(activity, log.getWatch())) {
                     tVwatch.setText(log.getWatch().toString());
                 } else {
                     tVwatch.setText("");
                 }
-                TextView tVtext = v.findViewById(R.id.tVtext);
-                ImageView iVimage = v.findViewById(R.id.iVimage);
+                TextView tVtext = (TextView) v.findViewById(R.id.tVtext);
+                ImageView iVimage = (ImageView) v.findViewById(R.id.iVimage);
                 tVtext.setVisibility(log instanceof TextLog ? View.VISIBLE : View.GONE);
                 iVimage.setVisibility(log instanceof ImageLog ? View.VISIBLE : View.GONE);
                 if(log instanceof TextLog) {
@@ -1029,12 +1110,16 @@ public class LogFragment extends Fragment {
                     tVtext.setText(textLog.getText());
                 } else if(log instanceof ImageLog) {
                     ImageLog imageLog = (ImageLog) log;
-                    File imageFile = new File(imageLog.getAbsolutePath());
+                    File imageFile = new File(imageLog.getAbsolutePath(activity));
                     if(imageFile.exists()) {
-                        // TODO: do not load image source every time
+                        iVimage.setTag(imageLog);
                         iVimage.setAdjustViewBounds(true);
-                        iVimage.setImageURI(Uri.fromFile(imageFile));
-                        // TODO: set image width and height
+                        if(imageLog.getDrawable()==null) {
+                            ImageLoadTask loadTask = new ImageLoadTask(iVimage, imageLog);
+                            loadTask.execute((Void) null);
+                        } else {
+                            iVimage.setImageDrawable(imageLog.getDrawable());
+                        }
                     } else {
                         iVimage.setAdjustViewBounds(false);
                         ImageDownloadTask downloadTask = new ImageDownloadTask(imageLog);

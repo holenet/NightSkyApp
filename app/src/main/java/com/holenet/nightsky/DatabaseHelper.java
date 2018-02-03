@@ -13,11 +13,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-    public final static int databaseVersion = 7;
+    public final static int databaseVersion = 8;
 
     public final static String musicListTable = "music_list";
     public final static String musicTable = "music";
     public final static String musicLinkTable = "music_link";
+
+    public final static String logTable = "log";
 
     public final static String pieceTable = "piece";
 
@@ -62,6 +64,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             e.printStackTrace();
         }
 
+        CREATE_SQL = "create table "+logTable+"("
+                + " _id integer PRIMARY KEY autoincrement, "
+                + " pk int, "
+                + " type text, "
+                + " watch_pk int, "
+                + " text text)";
+        try {
+            db.execSQL(CREATE_SQL);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+
         CREATE_SQL = "create table "+pieceTable+"("
                 + " _id integer PRIMARY KEY autoincrement, "
                 + " pk int, "
@@ -97,6 +111,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("drop table if exists "+musicListTable);
         db.execSQL("drop table if exists "+musicTable);
         db.execSQL("drop table if exists "+musicLinkTable);
+        db.execSQL("drop table if exists "+logTable);
         db.execSQL("drop table if exists "+pieceTable);
         db.execSQL("drop table if exists "+watchTable);
         onCreate(db);

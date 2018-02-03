@@ -10,14 +10,13 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.media.MediaPlayer;
 import android.os.Binder;
-import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
 import com.holenet.nightsky.DatabaseHelper;
 import com.holenet.nightsky.R;
-import com.holenet.nightsky.main.UserActivity;
 import com.holenet.nightsky.item.Music;
+import com.holenet.nightsky.main.UserActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -244,11 +243,7 @@ public class MusicService extends Service {
         PendingIntent content = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification.Builder notiBuilder;
-        if(Build.VERSION.SDK_INT >=Build.VERSION_CODES.O) {
-            notiBuilder = new Notification.Builder(this, "Music");
-        } else {
-            notiBuilder = new Notification.Builder(this);
-        }
+        notiBuilder = new Notification.Builder(this);
         notiBuilder.setTicker("Music")
                 .setContentTitle("Music Player")
                 .setContentText("Playing...")

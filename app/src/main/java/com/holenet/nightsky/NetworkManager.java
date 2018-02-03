@@ -259,6 +259,9 @@ public class NetworkManager {
         int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
         cursor.moveToFirst();
         String fileName = cursor.getString(nameIndex);
+        if(fileName.length()>100) {
+            fileName = fileName.replace(fileName.split("\\.")[0], fileName.split("\\.")[0].substring(0, 100-(fileName.split("\\.").length>1 ? fileName.split("\\.")[1].length()+1 : 0)));
+        }
         cursor.close();
         Log.e("upload", fileName);
 

@@ -286,7 +286,7 @@ public class PostActivity extends AppCompatActivity {
     }
 
     protected void changeMode(final Mode nextMode) {
-        Log.e("changeMode", mode+"/"+nextMode);
+        Log.e("changeMultiMode", mode+"/"+nextMode);
         if(mode==nextMode)
             return;
         int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);

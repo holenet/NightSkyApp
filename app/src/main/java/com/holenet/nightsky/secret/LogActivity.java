@@ -2,10 +2,14 @@ package com.holenet.nightsky.secret;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
@@ -15,15 +19,21 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import com.holenet.nightsky.DatabaseHelper;
 import com.holenet.nightsky.NetworkManager;
 import com.holenet.nightsky.Parser;
 import com.holenet.nightsky.R;
-import com.holenet.nightsky.item.Piece;
+import com.holenet.nightsky.item.ImageLog;
 import com.holenet.nightsky.item.Watch;
 
+import java.io.File;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -49,13 +59,14 @@ public class LogActivity extends AppCompatActivity {
     List<FragInfo> fragInfos;
 
     DateListTask listTask;
-    PieceUpdateTask pieceUpdateTask;
     WatchUpdateTask watchUpdateTask;
 
     private ViewPager viewPager;
     private PagerAdapter pagerAdapter;
 
     private ProgressBar pBloading;
+
+    private ConstraintLayout cLfullscreen;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,9 +96,11 @@ public class LogActivity extends AppCompatActivity {
                 if(position<fragInfos.size()) {
                     getSupportActionBar().setTitle(fragInfos.get(position).date);
                     if(lastCurrent!=-1 && lastCurrent<fragInfos.size()) {
-                        android.view.ActionMode actionMode = fragInfos.get(lastCurrent).fragment.multiChoiceAction;
-                        if(actionMode!=null) {
-                            actionMode.finish();
+                        if(fragInfos.get(lastCurrent).fragment!=null) {
+                            android.view.ActionMode actionMode = fragInfos.get(lastCurrent).fragment.multiChoiceAction;
+                            if(actionMode!=null) {
+                                actionMode.finish();
+                            }
                         }
                     }
                     updateProgress();
@@ -102,6 +115,21 @@ public class LogActivity extends AppCompatActivity {
 
         pBloading = (ProgressBar) findViewById(R.id.pBloading);
 
+        cLfullscreen = (ConstraintLayout) findViewById(R.id.cLfullscreen);
+        cLfullscreen.findViewById(R.id.bTexit).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                fullscreen(false, null);
+            }
+        });
+        cLfullscreen.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                // TODO: implement pinch-zoom and drag-move and double-click-zoom
+                return true;
+            }
+        });
+
         refresh(true);
     }
 
@@ -111,10 +139,6 @@ public class LogActivity extends AppCompatActivity {
         listTask = new DateListTask(first);
         listTask.execute((Void) null);
         if(first) {
-            if(pieceUpdateTask==null) {
-                pieceUpdateTask = new PieceUpdateTask();
-                pieceUpdateTask.execute((Void) null);
-            }
             if(watchUpdateTask==null) {
                 watchUpdateTask = new WatchUpdateTask();
                 watchUpdateTask.execute((Void) null);
@@ -163,7 +187,7 @@ public class LogActivity extends AppCompatActivity {
                         || fragment.linkTask!=null;
             }
         }
-        if(listTask!=null || pieceUpdateTask!=null || watchUpdateTask!=null) {
+        if(listTask!=null || watchUpdateTask!=null) {
             show = true;
         }
         if(showing==show)
@@ -176,6 +200,30 @@ public class LogActivity extends AppCompatActivity {
         pBloading.clearAnimation();
         pBloading.setAlpha(alpha);
         pBloading.animate().setDuration((long)(shortAnimTime*(show ? 1-alpha : alpha))).alpha(show ? 1 : 0);
+    }
+
+    protected void fullscreen(boolean show, ImageLog log) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(show ? Color.BLACK : getResources().getColor(R.color.colorPrimaryDark));
+        }
+        cLfullscreen.setVisibility(show ? View.VISIBLE : View.GONE);
+        if(show) {
+            ImageView iVimage = (ImageView) cLfullscreen.findViewById(R.id.iVimage);
+            iVimage.setImageURI(Uri.fromFile(new File(log.getAbsolutePath(this))));
+            iVimage.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+
+                    Log.e("onTouch", event.getPointerCount()+": "+event.getAction()+"/"+event.getActionMasked());
+                    return true;
+                }
+            });
+            getSupportActionBar().hide();
+        } else {
+            getSupportActionBar().show();
+        }
     }
 
     protected void requestPurge(LogFragment fragment) {
@@ -238,44 +286,6 @@ public class LogActivity extends AppCompatActivity {
         }
     }
 
-    private class PieceUpdateTask extends AsyncTask<Void, Void, String> {
-        @Override
-        protected void onPreExecute() {
-            updateProgress();
-        }
-
-        @Override
-        protected String doInBackground(Void... voids) {
-            return NetworkManager.get(LogActivity.this, NetworkManager.SECRET_DOMAIN+"piece/list/");
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            pieceUpdateTask = null;
-            updateProgress();
-
-            List<Piece> pieces = Parser.getPiecesJSON(result);
-            if(pieces==null) {
-                return;
-            }
-            SQLiteDatabase db = new DatabaseHelper(LogActivity.this).getWritableDatabase();
-            db.delete(DatabaseHelper.pieceTable, null, null);
-            for(Piece piece: pieces) {
-                ContentValues values = new ContentValues();
-                values.put("pk", piece.getPk());
-                values.put("title", piece.getTitle());
-                db.insert(DatabaseHelper.pieceTable, null, values);
-            }
-            db.close();
-        }
-
-        @Override
-        protected void onCancelled() {
-            pieceUpdateTask = null;
-            updateProgress();
-        }
-    }
-
     private class WatchUpdateTask extends AsyncTask<Void, Void, String> {
         @Override
         protected void onPreExecute() {
@@ -304,6 +314,7 @@ public class LogActivity extends AppCompatActivity {
                 values.put("piece_pk", watch.getPiece().getPk());
                 values.put("start", watch.getStart());
                 values.put("end", watch.getEnd());
+                values.put("etc", watch.getEtc());
                 values.put("date", watch.getDate());
                 db.insert(DatabaseHelper.watchTable, null, values);
             }

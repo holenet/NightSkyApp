@@ -49,7 +49,7 @@ public class PostFragment extends Fragment {
 
         View v = inflater.inflate(R.layout.fragment_post, container, false);
 
-        fABadd = v.findViewById(R.id.fABadd);
+        fABadd = (FloatingActionButton) v.findViewById(R.id.fABadd);
         fABadd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -163,19 +163,19 @@ public class PostFragment extends Fragment {
 
             Post post = items.get(position);
             if(post!=null) {
-                TextView tVtitle = v.findViewById(R.id.tVtitle);
+                TextView tVtitle = (TextView) v.findViewById(R.id.tVtitle);
                 if(tVtitle!=null)
                     tVtitle.setText(post.getTitle());
-                TextView tVtext = v.findViewById(R.id.tVtext);
+                TextView tVtext = (TextView) v.findViewById(R.id.tVtext);
                 if(tVtext!=null)
                     tVtext.setText(post.getText());
-                TextView tVauthor = v.findViewById(R.id.tVauthor);
+                TextView tVauthor = (TextView) v.findViewById(R.id.tVauthor);
                 if(tVauthor!=null)
                     tVauthor.setText(post.getAuthor());
-                TextView tVdate = v.findViewById(R.id.tVdate);
+                TextView tVdate = (TextView) v.findViewById(R.id.tVdate);
                 if(tVdate!=null)
                     tVdate.setText(post.getDatetime()[0]);
-                TextView tVcommentCount = v.findViewById(R.id.tVcommentCount);
+                TextView tVcommentCount = (TextView) v.findViewById(R.id.tVcommentCount);
                 if(tVcommentCount!=null)
                     tVcommentCount.setText(String.valueOf(post.getCommentCount()));
             }
