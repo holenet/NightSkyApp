@@ -26,9 +26,12 @@ import com.holenet.nightsky.NetworkManager;
 import com.holenet.nightsky.Parser;
 import com.holenet.nightsky.R;
 import com.holenet.nightsky.item.Piece;
+import com.holenet.nightsky.item.Watch;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.xml.parsers.SAXParser;
 
 public class SecretActivity extends AppCompatActivity {
 
@@ -36,6 +39,7 @@ public class SecretActivity extends AppCompatActivity {
 
     FloatingActionButton fABlog;
     RecyclerView rVpieces;
+    RecyclerAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,15 +63,11 @@ public class SecretActivity extends AppCompatActivity {
         rVpieces.setHasFixedSize(true);
         rVpieces.setLayoutManager(layoutManager);
 
-        List<Piece> pieces = new ArrayList<>();
-        pieces.add(new Piece(19238, "abcd"));
-        pieces.add(new Piece(19238, "abcd"));
-        pieces.add(new Piece(19238, "abcd"));
-        pieces.add(new Piece(19238, "abcd"));
-        pieces.add(new Piece(19238, "abcd"));
-        rVpieces.setAdapter(new RecyclerAdapter(getApplicationContext(), pieces, R.layout.activity_secret));
+        adapter = new RecyclerAdapter(getApplicationContext(), DatabaseHelper.getPieceList(SecretActivity.this), R.layout.activity_secret);
+        rVpieces.setAdapter(adapter);
 
         refresh();
+        fABlog.callOnClick();
     }
 
     private void refresh() {
@@ -81,7 +81,7 @@ public class SecretActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        finish();
+//        finish();
     }
 
     private class PieceUpdateTask extends AsyncTask<Void, Void, String> {
@@ -115,6 +115,9 @@ public class SecretActivity extends AppCompatActivity {
                 db.insert(DatabaseHelper.pieceTable, null, values);
             }
             db.close();
+
+            adapter.replaceAll(pieces);
+            adapter.notifyDataSetChanged();
         }
 
         @Override
@@ -147,10 +150,14 @@ public class SecretActivity extends AppCompatActivity {
             Drawable drawable = ContextCompat.getDrawable(context, R.drawable.side_nav_bar);
             holder.iVimage.setImageResource(R.drawable.side_nav_bar);
             holder.tVtitle.setText(piece.getTitle());
+            Watch watch = DatabaseHelper.getRecentWatch(SecretActivity.this, piece);
+            holder.tVRecentDate.setText(watch==null ? "" : Parser.getSimpleDate(watch.getDate()));
             holder.cVpiece.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Toast.makeText(context, piece.getTitle(), Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(SecretActivity.this, PieceActivity.class);
+                    intent.putExtra("piece_pk", piece.getPk());
+                    startActivityForResult(intent, 1);
                 }
             });
         }
@@ -160,15 +167,24 @@ public class SecretActivity extends AppCompatActivity {
             return this.items.size();
         }
 
+        public void replaceAll(List<Piece> pieces) {
+            items.clear();
+            for(Piece piece: pieces) {
+                items.add(piece);
+            }
+        }
+
         public class ViewHolder extends RecyclerView.ViewHolder {
             ImageView iVimage;
-            TextView tVtitle;
+            TextView tVtitle, tVRecentDate;
             CardView cVpiece;
 
             public ViewHolder(View itemView) {
                 super(itemView);
                 iVimage = (ImageView) itemView.findViewById(R.id.iVimage);
                 tVtitle = (TextView) itemView.findViewById(R.id.tVtitle);
+                tVtitle.setSelected(true);
+                tVRecentDate = (TextView) itemView.findViewById(R.id.tVRecentDate);
                 cVpiece = (CardView) itemView.findViewById(R.id.cVpiece);
             }
         }

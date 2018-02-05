@@ -170,7 +170,7 @@ public class LogFragment extends Fragment {
             iBlink.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    showWatchPicker(null);
+                    showPiecePicker(null);
                 }
             });
             tVtitle = (TextView) v.findViewById(R.id.tVtitle);
@@ -300,7 +300,7 @@ public class LogFragment extends Fragment {
                                     logs.add(adapter.getItem(checkedItems.keyAt(i)));
                                 }
                             }
-                            showWatchPicker(logs);
+                            showPiecePicker(logs);
                             actionMode.finish();
                             break;
                         case R.id.mIdelete:
@@ -351,13 +351,11 @@ public class LogFragment extends Fragment {
     private void showWatchPicker(final List<BaseLog> logs) {
         final List<Watch> watches = DatabaseHelper.getWatchList(activity);
         for(Watch watch: watches) {
-            DatabaseHelper.updateWatch(activity, watch);
+            DatabaseHelper.updatePiece(activity, watch);
         }
-        final String[] items = new String[watches.size()+2];
-        items[0] = "Create New Watch";
-        items[items.length-1] = "Don't Link Any Watch";
-        for(int i=1; i<watches.size()+1; i++) {
-            Watch watch = watches.get(i-1);
+        final String[] items = new String[watches.size()];
+        for(int i=0; i<watches.size(); i++) {
+            Watch watch = watches.get(i);
             items[i] = watch.toString();
         }
         new AlertDialog.Builder(activity)
@@ -365,9 +363,43 @@ public class LogFragment extends Fragment {
                 .setItems(items, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
+                        Watch watch = watches.get(i);
+                        if(logs==null) {
+                            tVtitle.setText(watch.getPiece().getTitle());
+                            tVrange.setText(watch.getRange());
+                            bTlogSave.setTag(watch);
+                        } else {
+                            if(linkTask!=null) {
+                                Toast.makeText(activity, R.string.error_try_later, Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            linkTask = new WatchLinkTask(watch, logs);
+                            linkTask.execute((Void) null);
+                        }
+                    }
+                })
+                .show();
+    }
+
+    private void showPiecePicker(final List<BaseLog> logs) {
+        final List<Piece> pieces = DatabaseHelper.getPieceList(activity);
+        String[] items = new String[pieces.size()+3];
+        items[0] = "Register New Piece";
+        items[1] = "Link to Existed Watch";
+        items[2] = "Do Not Link to Any Watch";
+        for(int i=0; i<pieces.size(); i++) {
+            items[i+3] = pieces.get(i).getTitle();
+        }
+        new AlertDialog.Builder(activity)
+                .setTitle("Choose a piece")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
                         if(i==0) {
-                            showPiecePicker(logs);
-                        } else if(i==items.length-1) {
+                            showRegisterPieceDialog(logs);
+                        } else if(i==1) {
+                            showWatchPicker(logs);
+                        } else if(i==2) {
                             if(logs==null) {
                                 tVtitle.setText("");
                                 tVrange.setText("");
@@ -381,41 +413,7 @@ public class LogFragment extends Fragment {
                                 linkTask.execute((Void) null);
                             }
                         } else {
-                            Watch watch = watches.get(i-1);
-                            if(logs==null) {
-                                tVtitle.setText(watch.getPiece().getTitle());
-                                tVrange.setText(watch.getRange());
-                                bTlogSave.setTag(watch);
-                            } else {
-                                if(linkTask!=null) {
-                                    Toast.makeText(activity, R.string.error_try_later, Toast.LENGTH_SHORT).show();
-                                    return;
-                                }
-                                linkTask = new WatchLinkTask(watch, logs);
-                                linkTask.execute((Void) null);
-                            }
-                        }
-                    }
-                })
-                .show();
-    }
-
-    private void showPiecePicker(final List<BaseLog> logs) {
-        final List<Piece> pieces = DatabaseHelper.getPieceList(activity);
-        String[] items = new String[pieces.size()+1];
-        items[0] = "Register New Piece";
-        for(int i=1; i<pieces.size()+1; i++) {
-            items[i] = pieces.get(i-1).getTitle();
-        }
-        new AlertDialog.Builder(activity)
-                .setTitle("Choose a piece")
-                .setItems(items, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        if(i==0) {
-                            showRegisterPieceDialog(logs);
-                        } else {
-                            showRangePicker(pieces.get(i-1), logs);
+                            showRangePicker(pieces.get(i-3), logs);
                         }
                     }
                 }).show();
@@ -424,7 +422,6 @@ public class LogFragment extends Fragment {
     private void showRegisterPieceDialog(final List<BaseLog> logs) {
         final LinearLayout layout = (LinearLayout)(((LayoutInflater)activity.getSystemService(LAYOUT_INFLATER_SERVICE)).inflate(R.layout.dialog_register_piece, null));
         final EditText eTtitle = (EditText) layout.findViewById(R.id.eTtitle);
-        final EditText eTcomment = (EditText) layout.findViewById(R.id.eTcomment);
         new AlertDialog.Builder(activity)
                 .setTitle("Register New Piece")
                 .setView(layout)
@@ -436,13 +433,12 @@ public class LogFragment extends Fragment {
                             Toast.makeText(activity, "Title of piece can not be blank", Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        String comment = eTcomment.getText().toString();
 
                         if(registerTask!=null) {
                             Toast.makeText(activity, R.string.error_try_later, Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        registerTask = new PieceRegisterTask(new Piece(title, comment), logs);
+                        registerTask = new PieceRegisterTask(new Piece(title), logs);
                         registerTask.execute((Void) null);
                     }
                 })
@@ -475,6 +471,11 @@ public class LogFragment extends Fragment {
                     nPstart.setValue(i1);
             }
         });
+        Watch recentWatch = DatabaseHelper.getRecentWatch(activity, piece);
+        if(recentWatch!=null) {
+            nPstart.setValue(recentWatch.getStart()+1);
+            nPend.setValue(recentWatch.getEnd()+1);
+        }
         eTetc.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -626,6 +627,7 @@ public class LogFragment extends Fragment {
 
             tVtitle.setText("");
             tVrange.setText("");
+            bTlogSave.setTag(null);
         }
 
         @Override
@@ -818,7 +820,8 @@ public class LogFragment extends Fragment {
         protected String doInBackground(Void... voids) {
             Map<String, String> data = new LinkedHashMap<>();
             data.put("title", piece.getTitle());
-            data.put("comment", piece.getComment());
+            // TODO: remove comment data
+            data.put("comment", "");
             return NetworkManager.post(activity, NetworkManager.SECRET_DOMAIN+"piece/new/", data);
         }
 
@@ -1096,7 +1099,7 @@ public class LogFragment extends Fragment {
                 else
                     tVdatetime.setText(Parser.getSimpleTime(log.getCreatedAt()));
                 TextView tVwatch = (TextView) v.findViewById(R.id.tVwatch);
-                if(DatabaseHelper.updateWatch(activity, log.getWatch())) {
+                if(DatabaseHelper.updatePiece(activity, log.getWatch())) {
                     tVwatch.setText(log.getWatch().toString());
                 } else {
                     tVwatch.setText("");

@@ -283,9 +283,10 @@ public class Parser {
     private static Piece getPieceJSON(JSONObject joPiece) throws Exception {
         int pk = joPiece.getInt("pk");
         String title = joPiece.getString("title");
+        // TODO: remove comment data
         String comment = joPiece.getString("comment");
         // TODO: extract other properties
-        return new Piece(pk, title, comment);
+        return new Piece(pk, title);
     }
 
     public static List<Watch> getWatchesJSON(String res) {

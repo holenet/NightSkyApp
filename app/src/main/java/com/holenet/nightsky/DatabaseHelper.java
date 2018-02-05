@@ -122,7 +122,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return false;
     }
 
-    public static boolean updateWatch(Context context, Watch watch) {
+    public static boolean updatePiece(Context context, Watch watch) {
         if(watch==null)
             return false;
         SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
@@ -137,6 +137,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         watch.setPiece(new Piece(piecePk, cc.getString(0)));
         cc.close();
         c.close();
+
+        return true;
+    }
+
+    public static boolean updateWatchList(Context context, Piece piece) {
+        if(piece==null)
+            return false;
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        List<Watch> watches = new ArrayList<>();
+        Cursor c = db.rawQuery("select pk, start, end, etc, date from "+DatabaseHelper.watchTable+" where piece_pk = "+piece.getPk(), null);
+        for(int i=0; i<c.getCount(); i++) {
+            c.moveToNext();
+            int pk = c.getInt(0);
+            watches.add(new Watch(pk));
+        }
+        c.close();
+        db.close();
+        piece.setWatches(watches);
 
         return true;
     }
@@ -168,5 +186,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         c.close();
         db.close();
         return pieces;
+    }
+
+    public static Watch getRecentWatch(Context context, Piece piece) {
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        Watch watch = null;
+        Cursor c = db.rawQuery("select pk, start, end, date from "+DatabaseHelper.watchTable+" where piece_pk = "+piece.getPk(), null);
+        if(c.getCount()>0) {
+            c.moveToNext();
+            watch = new Watch(c.getInt(0), piece, c.getInt(1), c.getInt(2), c.getString(3));
+        }
+        c.close();
+        db.close();
+        return watch;
+    }
+
+    public static Piece getPiece(Context context, int pk) {
+        SQLiteDatabase db = new DatabaseHelper(context).getReadableDatabase();
+        Piece piece = null;
+        Cursor c = db.rawQuery("select title from "+pieceTable+" where pk = "+pk, null);
+        if(c.getCount()>0) {
+            c.moveToNext();
+            piece = new Piece(pk, c.getString(0));
+        }
+        c.close();
+        db.close();
+        return piece;
     }
 }

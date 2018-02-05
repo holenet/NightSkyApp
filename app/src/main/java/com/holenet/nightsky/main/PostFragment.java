@@ -118,6 +118,8 @@ public class PostFragment extends Fragment {
             }
 
             List<Post> posts = Parser.getPostListJSON(result);
+            if(posts==null)
+                posts = new ArrayList<>();
 
             adapter.setItems(posts);
             adapter.notifyDataSetChanged();

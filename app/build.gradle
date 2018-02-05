@@ -7,8 +7,8 @@ android {
         applicationId "com.holenet.nightsky"
         minSdkVersion 16
         targetSdkVersion 25
-        versionCode 13
-        versionName "0.8.9"
+        versionCode 14
+        versionName "0.9.00"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 

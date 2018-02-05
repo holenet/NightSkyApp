@@ -6,29 +6,20 @@ import java.util.List;
 public class Piece {
     private int pk;
     private String title;
-    private String comment;
     private List<Watch> watches;
 
     public Piece(int pk) {
         this.pk = pk;
     }
 
+    public Piece(String title) {
+        this.title = title;
+        watches = new ArrayList<>();
+    }
+
     public Piece(int pk, String title) {
         this.pk = pk;
         this.title = title;
-        watches = new ArrayList<>();
-    }
-
-    public Piece(String title, String comment) {
-        this.title = title;
-        this.comment = comment;
-        watches = new ArrayList<>();
-    }
-
-    public Piece(int pk, String title, String comment) {
-        this.pk = pk;
-        this.title = title;
-        this.comment = comment;
         watches = new ArrayList<>();
     }
 
@@ -46,14 +37,6 @@ public class Piece {
 
     public void setTitle(String title) {
         this.title = title;
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
-    public void setComment(String comment) {
-        this.comment = comment;
     }
 
     public List<Watch> getWatches() {

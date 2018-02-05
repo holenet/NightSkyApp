@@ -7,9 +7,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
 
+import com.holenet.nightsky.DatabaseHelper;
 import com.holenet.nightsky.R;
+import com.holenet.nightsky.item.Piece;
 
 public class PieceActivity extends AppCompatActivity {
+    Piece piece;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,5 +29,14 @@ public class PieceActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+        piece = DatabaseHelper.getPiece(PieceActivity.this, getIntent().getIntExtra("piece_pk", 0));
+        DatabaseHelper.updateWatchList(PieceActivity.this, piece);
+
+        refresh();
+    }
+
+    private void refresh() {
+        getSupportActionBar().setTitle(piece.getTitle());
     }
 }
